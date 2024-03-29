@@ -40,8 +40,8 @@ vec4 terrain_noise(vec3 p) {
     vec4 val = fractal_noise(value_noise_texture, g_sampler_llr, p, noise_conf);
     // const float ground_level = 6362000.0;
     const float ground_level = 0.0;
-    val.x += (p.z - ground_level + 100.0) * 0.009 - 1.0;
-    val.yzw = normalize(val.yzw + vec3(0, 0, 0.009));
+    val.x += (p.z - ground_level + 100.0) * 0.003 - 0.4;
+    val.yzw = normalize(val.yzw + vec3(0, 0, 0.003));
     // val.x += -0.24;
     return val;
 }
@@ -204,6 +204,11 @@ vec3 forest_biome_palette(float t) {
 #define UserMaxElementCount MAX_TREE_PARTICLES
 #include <utilities/allocator.glsl>
 
+#define UserAllocatorType FireParticleAllocator
+#define UserIndexType uint
+#define UserMaxElementCount MAX_FIRE_PARTICLES
+#include <utilities/allocator.glsl>
+
 void spawn_grass(in out Voxel voxel) {
     GrassStrand grass_strand;
     grass_strand.origin = voxel_pos;
@@ -238,6 +243,18 @@ void spawn_tree_particle(in out Voxel voxel) {
     daxa_RWBufferPtr(TreeParticle) tree_particles = deref(tree_particle_allocator).heap;
     if (index < MAX_TREE_PARTICLES) {
         deref(advance(tree_particles, index)) = tree_particle;
+    }
+}
+void spawn_fire_particle(in out Voxel voxel) {
+    FireParticle fire_particle;
+    fire_particle.origin = voxel_pos;
+    fire_particle.packed_voxel = pack_voxel(voxel);
+    fire_particle.flags = 1;
+
+    uint index = FireParticleAllocator_malloc(fire_particle_allocator);
+    daxa_RWBufferPtr(FireParticle) fire_particles = deref(fire_particle_allocator).heap;
+    if (index < MAX_FIRE_PARTICLES) {
+        deref(advance(fire_particles, index)) = fire_particle;
     }
 }
 
@@ -449,7 +466,7 @@ void brush_remove_grass(in out Voxel voxel) {
 }
 
 void brush_remove_ball(in out Voxel voxel) {
-    float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 32.0 * VOXEL_SIZE);
+    float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 6.0 * VOXEL_SIZE);
     if (sd < 0) {
         voxel.color = vec3(0, 0, 0);
         voxel.material_type = 0;
@@ -514,6 +531,85 @@ void brush_light_ball(in out Voxel voxel) {
     }
     if (sd < 2.5 * VOXEL_SIZE) {
         voxel.normal = vec3(0, 0, 1);
+    }
+}
+void brush_lantern(in out Voxel voxel) {
+    float sd_housing = FLT_MAX;
+    float sd_flame = FLT_MAX;
+
+    vec3 lantern_c = brush_input.pos + brush_input.pos_offset;
+
+    sd_housing = sd_union(sd_housing, sd_box_frame(voxel_pos - lantern_c - vec3(0, 0, 0.4), vec3((VOXEL_SIZE * 4).xx, 0.4), VOXEL_SIZE));
+    sd_housing = sd_union(sd_housing, sd_box(voxel_pos - lantern_c, vec3((VOXEL_SIZE * 3).xx, VOXEL_SIZE)));
+    sd_housing = sd_union(sd_housing, sd_box(voxel_pos - lantern_c - vec3(0, 0, 0.8), vec3((VOXEL_SIZE * 3).xx, VOXEL_SIZE)));
+    sd_housing = sd_union(sd_housing, sd_box(voxel_pos - lantern_c - vec3(0, 0, 0.8 + VOXEL_SIZE * 1), vec3((VOXEL_SIZE * 1).xx, VOXEL_SIZE)));
+
+    sd_flame = sd_union(sd_flame, sd_box(voxel_pos - lantern_c - vec3(0, 0, 0.4), vec3((VOXEL_SIZE * 3).xx, 0.4)));
+
+    if (sd_housing < 0) {
+        voxel.material_type = 1;
+        voxel.color = vec3(0.05, 0.05, 0.05);
+        voxel.roughness = 0.9;
+        voxel.normal = vec3(0, 0, 1);
+    } else if (sd_flame < 0) {
+        voxel.material_type = 3;
+        voxel.color = vec3(0.95, 0.35, 0.05);
+        voxel.roughness = 0.9;
+        voxel.normal = vec3(0, 0, 1);
+    }
+}
+void brush_fire(in out Voxel voxel) {
+    float sd_base = FLT_MAX;
+    float sd_flame = FLT_MAX;
+
+    vec3 lantern_c = brush_input.pos + brush_input.pos_offset;
+
+    sd_base = sd_union(sd_base, sd_box(voxel_pos - lantern_c, vec3((VOXEL_SIZE * 3).xx, VOXEL_SIZE)));
+
+    sd_flame = sd_union(sd_flame, sd_round_cone(voxel_pos - (lantern_c + vec3((VOXEL_SIZE * -0.5).xx, 0.2)), VOXEL_SIZE * 4, VOXEL_SIZE * 2, 0.4));
+    float flame_rand = good_rand(voxel_pos);
+
+    if (sd_base < 0) {
+        voxel.material_type = 1;
+        voxel.color = vec3(0.05, 0.05, 0.05);
+        voxel.roughness = 0.9;
+        voxel.normal = vec3(0, 0, 1);
+    } else if (sd_flame < 0) {
+        voxel.material_type = 3;
+        voxel.color = vec3(0.95, 0.15 + floor((flame_rand + voxel_pos.z - lantern_c.z) * 2.0) * 0.1, 0.05);
+        voxel.roughness = 0.3 + flame_rand * 0.3;
+        voxel.normal = vec3(0, 0, 1);
+        if (sd_flame > -VOXEL_SIZE) {
+            spawn_fire_particle(voxel);
+        }
+    }
+}
+void brush_torch(in out Voxel voxel) {
+    float sd_base = FLT_MAX;
+    float sd_flame = FLT_MAX;
+
+    vec3 lantern_c = brush_input.pos + brush_input.pos_offset;
+
+    sd_base = sd_union(sd_base, sd_box(voxel_pos - (lantern_c + vec3(0, 0, 1.0)), vec3((VOXEL_SIZE * 2.5).xx, VOXEL_SIZE)));
+    sd_base = sd_union(sd_base, sd_box(voxel_pos - (lantern_c + vec3(0, 0, 0.5)), vec3((VOXEL_SIZE * 1.5).xx, 0.5)));
+
+    sd_flame = sd_union(sd_flame, sd_round_cone(voxel_pos - (lantern_c + vec3(0, 0, 1.0 + VOXEL_SIZE * 2)), VOXEL_SIZE * 2.0, VOXEL_SIZE * 0.5, 0.2));
+    float flame_rand = good_rand(voxel_pos);
+
+    if (sd_base < 0) {
+        voxel.material_type = 1;
+        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.roughness = 0.9;
+        voxel.normal = vec3(0, 0, 1);
+    } else if (sd_flame < 0) {
+        voxel.material_type = 3;
+        voxel.color = vec3(0.95, 0.05 + floor(flame_rand + voxel_pos.z - lantern_c.z) * 0.1, 0.05);
+        voxel.roughness = 0.3 + flame_rand * 0.3;
+        voxel.normal = vec3(0, 0, 1);
+
+        if (sd_flame > -VOXEL_SIZE) {
+            spawn_fire_particle(voxel);
+        }
     }
 }
 
@@ -630,7 +726,12 @@ void brushgen_b(in out Voxel voxel) {
 
     // brush_grass_ball(voxel);
     // brush_flowers(voxel);
+
     // brush_light_ball(voxel);
-    brush_maple_tree(voxel);
+    // brush_lantern(voxel);
+    brush_fire(voxel);
+    // brush_torch(voxel);
+
+    // brush_maple_tree(voxel);
     // brush_spruce_tree(voxel);
 }

@@ -82,6 +82,8 @@ void particle_render(
 #define PARTICLE_RENDER_PARAMS deref(particles_state).sim_particle
 #elif defined(TREE_PARTICLE)
 #define PARTICLE_RENDER_PARAMS deref(particles_state).tree_particle
+#elif defined(FIRE_PARTICLE)
+#define PARTICLE_RENDER_PARAMS deref(particles_state).fire_particle
 #endif
     if (should_splat) {
         // TODO: Stochastic pruning?

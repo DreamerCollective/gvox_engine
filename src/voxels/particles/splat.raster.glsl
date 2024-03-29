@@ -15,6 +15,9 @@ daxa_BufferPtr(SimulatedVoxelParticle) simulated_voxel_particles = push.uses.sim
 #elif defined(TREE_PARTICLE)
 DAXA_DECL_PUSH_CONSTANT(TreeParticleSplatParticleRasterPush, push)
 daxa_BufferPtr(TreeParticle) tree_particles = push.uses.tree_particles;
+#elif defined(FIRE_PARTICLE)
+DAXA_DECL_PUSH_CONSTANT(FireParticleSplatParticleRasterPush, push)
+daxa_BufferPtr(FireParticle) fire_particles = push.uses.fire_particles;
 #endif
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 daxa_BufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses.splat_rendered_particle_verts;
@@ -23,6 +26,7 @@ daxa_BufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses.s
 #include "flower/flower.glsl"
 #include "sim_particle/sim_particle.glsl"
 #include "tree_particle/tree_particle.glsl"
+#include "fire_particle/fire_particle.glsl"
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_VERTEX
 
@@ -44,6 +48,8 @@ void main() {
     ParticleVertex vert = get_sim_particle_vertex(gpu_input, simulated_voxel_particles, packed_vertex);
 #elif defined(TREE_PARTICLE)
     ParticleVertex vert = get_tree_particle_vertex(gpu_input, tree_particles, packed_vertex);
+#elif defined(FIRE_PARTICLE)
+    ParticleVertex vert = get_fire_particle_vertex(gpu_input, fire_particles, packed_vertex);
 #endif
 
     float voxel_radius = VOXEL_SIZE * 0.5;
@@ -80,7 +86,9 @@ layout(location = 3) flat in vec3 center_ws;
 layout(location = 0) out uvec4 o_gbuffer;
 layout(location = 1) out vec4 o_vs_velocity;
 layout(location = 2) out vec4 o_vs_nrm;
-// layout(depth_less) out float gl_FragDepth;
+
+// TODO: Fix the z in the vertex shader. Works good enough for now though
+layout(depth_less) out float gl_FragDepth;
 
 struct Box {
     vec3 center;

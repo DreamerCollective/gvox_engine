@@ -8,6 +8,7 @@ VOXELS_USE_BUFFERS_PUSH_USES(daxa_RWBufferPtr)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(GrassStrandAllocator, grass_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FlowerAllocator, flower_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(TreeParticleAllocator, tree_particle_allocator)
+SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FireParticleAllocator, fire_particle_allocator)
 
 #include <renderer/kajiya/inc/camera.glsl>
 #include <voxels/voxels.glsl>
@@ -25,6 +26,11 @@ SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(TreeParticleAllocator, tree_particle_a
 #define UserAllocatorType TreeParticleAllocator
 #define UserIndexType uint
 #define UserMaxElementCount MAX_TREE_PARTICLES
+#include <utilities/allocator.glsl>
+
+#define UserAllocatorType FireParticleAllocator
+#define UserIndexType uint
+#define UserMaxElementCount MAX_FIRE_PARTICLES
 #include <utilities/allocator.glsl>
 
 void reset_draw_params(in out IndirectDrawIndexedParams params) {
@@ -72,4 +78,10 @@ void main() {
     reset_draw_params(deref(particles_state).tree_particle.shadow_cube_draw_params);
     reset_draw_params(deref(particles_state).tree_particle.splat_draw_params);
     TreeParticleAllocator_perframe(tree_particle_allocator);
+
+    // fire_particle
+    reset_draw_params(deref(particles_state).fire_particle.cube_draw_params);
+    reset_draw_params(deref(particles_state).fire_particle.shadow_cube_draw_params);
+    reset_draw_params(deref(particles_state).fire_particle.splat_draw_params);
+    FireParticleAllocator_perframe(fire_particle_allocator);
 }

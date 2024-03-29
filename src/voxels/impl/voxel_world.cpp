@@ -347,6 +347,7 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, GrassStrandAllocator, particles.grass.grass_allocator),
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, FlowerAllocator, particles.flowers.flower_allocator),
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, TreeParticleAllocator, particles.tree_particles.tree_particle_allocator),
+            SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, FireParticleAllocator, particles.fire_particles.fire_particle_allocator),
             daxa::TaskViewVariant{std::pair{ChunkEditCompute::value_noise_texture, task_value_noise_image.view({.layer_count = 256})}},
             daxa::TaskViewVariant{std::pair{ChunkEditCompute::test_texture, gpu_context.task_test_texture}},
             daxa::TaskViewVariant{std::pair{ChunkEditCompute::test_texture2, gpu_context.task_test_texture2}},

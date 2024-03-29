@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utilities/gpu/math.glsl>
+#include "brushes.inl"
 
 uint pack_unit(float x, uint bit_n) {
     float scl = float(1u << bit_n) - 1.0;
