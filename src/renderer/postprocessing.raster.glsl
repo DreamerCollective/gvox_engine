@@ -78,6 +78,28 @@ vec3 color_correct(vec3 x) {
 
 layout(location = 0) out vec4 color;
 
+// 8-bit
+uint bit_reverse(uint b) {
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+    return b;
+}
+uint interleave_uint32_with_zeros(uint word) {
+    word = (word ^ (word << 16)) & 0x0000ffffu;
+    word = (word ^ (word << 8)) & 0x00ff00ffu;
+    word = (word ^ (word << 4)) & 0x0f0f0f0fu;
+    word = (word ^ (word << 2)) & 0x33333333u;
+    word = (word ^ (word << 1)) & 0x55555555u;
+    return word;
+}
+uint bit_interleave(uint a, uint b) {
+    return interleave_uint32_with_zeros(a) | interleave_uint32_with_zeros(b << 1);
+}
+uint bitwise_xor(uint a, uint b) {
+    return a ^ b;
+}
+
 void main() {
     vec2 g_buffer_scl = vec2(deref(gpu_input).render_res_scl) * vec2(deref(gpu_input).frame_dim) / vec2(deref(gpu_input).rounded_frame_dim);
     vec2 uv = vec2(gl_FragCoord.xy);
@@ -94,6 +116,12 @@ void main() {
     }
 
     color = vec4(color_correct(final_color), 1.0);
+
+    // Dithering:
+    // uvec2 ij = uvec2(uv * g_buffer_scl) & 7;
+    // uint i = ij[0], j = ij[1];
+    // float off = float(bit_reverse(bit_interleave(bitwise_xor(i, j), i))) / 256.0;
+    // color.rgb = floor(color.rgb * 32 + off) / 32;
 }
 
 #endif

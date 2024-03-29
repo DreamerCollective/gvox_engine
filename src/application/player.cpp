@@ -27,15 +27,16 @@ void player_startup(Player &PLAYER) {
     if (((PLAYER.flags >> 0) & 0x1) != 0) {
         return;
     }
-    PLAYER.flags = 1;
+    PLAYER.flags = 1 | (1 << 6);
 
-    AppSettings::add<settings::InputFloat>({"Player", "Movement Speed", {.value = 2.5f}});
+    AppSettings::add<settings::InputFloat>({"Player", "Movement Speed", {.value = 1.5f}});
     AppSettings::add<settings::InputFloat>({"Player", "Sprint Multiplier", {.value = 3.0f}});
     AppSettings::add<settings::InputFloat>({"Player", "Crouch Multiplier", {.value = 0.5f}});
     AppSettings::add<settings::Checkbox>({"Player", "Wrap Position", {.value = true}});
-    AppSettings::add<settings::InputFloat>({"Player", "Jump Strength (meters on Earth)", {.value = 2.0f}});
+    AppSettings::add<settings::InputFloat>({"Player", "Jump Strength (meters on Earth)", {.value = 1.0f}});
     AppSettings::add<settings::InputFloat>({"Player", "Height", {.value = 1.75f}});
     AppSettings::add<settings::InputFloat>({"Player", "Crouch Height", {.value = 1.0f}});
+    AppSettings::add<settings::InputFloat>({"Player", "Fly Speed Multiplier", {.value = 10.0f}});
 
     // float ground_level = AppSettings::get<settings::InputFloat>("Atmosphere", "atmosphere_bottom").value * 1000.0f + 2000.0f;
     float ground_level = 0.0f;
@@ -129,6 +130,7 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     const float jump_strength = AppSettings::get<settings::InputFloat>("Player", "Jump Strength (meters on Earth)").value;
     const float player_height = AppSettings::get<settings::InputFloat>("Player", "Height").value;
     const float crouch_height = AppSettings::get<settings::InputFloat>("Player", "Crouch Height").value;
+    const float fly_speed_mult = AppSettings::get<settings::InputFloat>("Player", "Fly Speed Multiplier").value;
     float height = player_height;
 
     if (INPUT.actions[GAME_ACTION_MOVE_FORWARD] != 0)
@@ -145,6 +147,8 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
         applied_speed *= sprint_speed;
     if (is_crouched)
         applied_speed *= crouch_speed;
+    if (is_flying)
+        applied_speed *= fly_speed_mult;
 
     vec3 acc = vec3(0, 0, 0);
 
@@ -178,7 +182,8 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     float dt = std::min(INPUT.delta_time, 1.0f);
 
     PLAYER.vel = PLAYER.vel + acc * dt;
-    auto offset = (PLAYER.vel + move_vec * applied_speed) * dt;
+    auto vel = PLAYER.vel + move_vec * applied_speed;
+    auto offset = vel * dt;
     PLAYER.pos = PLAYER.pos + offset;
 
     PLAYER.flags &= ~(1u << 0x1);
@@ -314,4 +319,5 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     debug_utils::DebugDisplay::set_debug_string("Player Pos (voxel)", fmt::format("{:.3f}, {:.3f}, {:.3f}", PLAYER.pos.x * VOXEL_SCL, PLAYER.pos.y * VOXEL_SCL, PLAYER.pos.z * VOXEL_SCL));
     debug_utils::DebugDisplay::set_debug_string("Player Rot (Y/P/R)", fmt::format("{:.3f}, {:.3f}, {:.3f}", PLAYER.yaw, PLAYER.pitch, PLAYER.roll));
     debug_utils::DebugDisplay::set_debug_string("Player Unit Offset", fmt::format("{}, {}, {}", PLAYER.player_unit_offset.x, PLAYER.player_unit_offset.y, PLAYER.player_unit_offset.z));
+    debug_utils::DebugDisplay::set_debug_string("Player Vel (m/s)", fmt::format("{:.3f}, {:.3f}, {:.3f}", vel.x, vel.y, vel.z));
 }

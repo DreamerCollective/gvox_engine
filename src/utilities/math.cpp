@@ -10,9 +10,11 @@ float length(daxa_f32vec3 v) {
 
 daxa_f32vec3 normalize(daxa_f32vec3 v) {
     float len = length(v);
-    v.x /= len;
-    v.y /= len;
-    v.z /= len;
+    if (len != 0.0f) {
+        v.x /= len;
+        v.y /= len;
+        v.z /= len;
+    }
     return v;
 }
 

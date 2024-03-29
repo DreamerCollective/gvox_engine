@@ -131,9 +131,8 @@ VoxelTraceResult voxel_trace(in VoxelTraceInfo info, in out vec3 ray_pos) {
 #if PER_VOXEL_NORMALS
             Voxel voxel = unpack_voxel(result.voxel_data);
 
-            // vec3 voxel_pos = floor(ray_pos * VOXEL_SCL) * VOXEL_SIZE;
-            // vec3 del = normalize(voxel_pos - cam_pos);
-            // if (dot(voxel.normal, del) > -1.0 && dot(trace_result.nrm, voxel.normal) < 0.0) {
+            // vec3 del = info.ray_dir;
+            // if (dot(voxel.normal, del) > -1.0 && dot(result.nrm, voxel.normal) < 0.0) {
             //     voxel.normal *= -1;
             // }
 

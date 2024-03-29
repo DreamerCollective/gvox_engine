@@ -4,7 +4,7 @@
 #include <application/input.inl>
 
 #define LUMINANCE_HISTOGRAM_BIN_COUNT 256
-#define LUMINANCE_HISTOGRAM_MIN_LOG2 -16.0
+#define LUMINANCE_HISTOGRAM_MIN_LOG2 -10.0
 #define LUMINANCE_HISTOGRAM_MAX_LOG2 +16.0
 
 DAXA_DECL_TASK_HEAD_BEGIN(CalculateHistogramCompute, 3)
