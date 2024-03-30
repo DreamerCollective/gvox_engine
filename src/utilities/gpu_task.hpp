@@ -68,22 +68,18 @@ namespace {
 
     template <typename PushT>
     void set_push_constant(daxa::TaskInterface const &ti, PushT push) {
-        uint32_t offset = 0;
-        if constexpr (push_constant_size<PushT>() != 0) {
-            ti.recorder.push_constant(push);
-            offset = push_constant_size<PushT>();
+        if constexpr (requires(PushT p) { p.uses; }) {
+            ti.assign_attachment_shader_blob(push.uses.value);
         }
-        // ti.copy_task_head_to(&push.views);
-        ti.recorder.push_constant_vptr({ti.attachment_shader_data.data(), ti.attachment_shader_data.size(), offset});
+        ti.recorder.push_constant(push);
     }
 
     template <typename PushT>
     void set_push_constant(daxa::TaskInterface const &ti, daxa::RenderCommandRecorder &render_recorder, PushT push) {
-        uint32_t offset = 0;
-        if constexpr (sizeof(PushT) >= 4) {
-            render_recorder.push_constant(push);
-            offset = sizeof(PushT);
+        if constexpr (requires(PushT p) { p.uses; }) {
+            ti.assign_attachment_shader_blob(push.uses.value);
+            // ti.assign_attachment_shader_blob(reinterpret_cast<daxa::u8*>(&push.uses));
         }
-        render_recorder.push_constant_vptr({ti.attachment_shader_data.data(), ti.attachment_shader_data.size(), offset});
+        render_recorder.push_constant(push);
     }
 } // namespace

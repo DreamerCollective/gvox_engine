@@ -32,19 +32,19 @@ inline auto trace_shadows(GpuContext &gpu_context, GbufferDepth &gbuffer_depth, 
     auto render_shadows = AppSettings::get<settings::Checkbox>("Graphics", "Render Shadows").value;
 
     if (render_shadows) {
-        gpu_context.add(ComputeTask<TraceSecondaryCompute, TraceSecondaryComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<TraceSecondaryCompute::Task, TraceSecondaryComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"trace_secondary.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::shadow_mask, shadow_mask}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.shadow_mask, shadow_mask}},
                 VOXELS_BUFFER_USES_ASSIGN(TraceSecondaryCompute, voxel_buffers),
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::g_buffer_image_id, gbuffer_depth.gbuffer}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::depth_image_id, gbuffer_depth.depth.current()}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::particles_shadow_depth_tex, particles_shadow_depth_image}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.depth_image_id, gbuffer_depth.depth.current()}},
+                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.particles_shadow_depth_tex, particles_shadow_depth_image}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TraceSecondaryComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(TraceSecondaryCompute::g_buffer_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(TraceSecondaryCompute::AT.g_buffer_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);

@@ -79,20 +79,20 @@ DAXA_DECL_BUFFER_PTR(IrcacheBuffers)
     daxa_RWBufferPtr(VertexPacked) ircache_reposition_proposal_buf = deref(ircache_buffers).ircache_reposition_proposal_buf; \
     daxa_RWBufferPtr(daxa_u32) ircache_reposition_proposal_count_buf = deref(ircache_buffers).ircache_reposition_proposal_count_buf;
 
-#define IRCACHE_BUFFER_USES_ASSIGN(TaskHeadName, ircache)                                                                         \
-    daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_buffers, ircache.ircache_buffers}},                                     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_meta_buf, ircache.ircache_meta_buf}},                               \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_grid_meta_buf, ircache.ircache_grid_meta_buf}},                     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_entry_cell_buf, ircache.ircache_entry_cell_buf}},                   \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_spatial_buf, ircache.ircache_spatial_buf}},                         \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_irradiance_buf, ircache.ircache_irradiance_buf}},                   \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_aux_buf, ircache.ircache_aux_buf}},                                 \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_life_buf, ircache.ircache_life_buf}},                               \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_pool_buf, ircache.ircache_pool_buf}},                               \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_entry_indirection_buf, ircache.ircache_entry_indirection_buf}},     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::ircache_reposition_proposal_buf, ircache.ircache_reposition_proposal_buf}}, \
-        daxa::TaskViewVariant {                                                                                                   \
-        std::pair { TaskHeadName::ircache_reposition_proposal_count_buf, ircache.ircache_reposition_proposal_count_buf }          \
+#define IRCACHE_BUFFER_USES_ASSIGN(TaskHeadName, ircache)                                                                            \
+    daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_buffers, ircache.ircache_buffers}},                                     \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_meta_buf, ircache.ircache_meta_buf}},                               \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_grid_meta_buf, ircache.ircache_grid_meta_buf}},                     \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_entry_cell_buf, ircache.ircache_entry_cell_buf}},                   \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_spatial_buf, ircache.ircache_spatial_buf}},                         \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_irradiance_buf, ircache.ircache_irradiance_buf}},                   \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_aux_buf, ircache.ircache_aux_buf}},                                 \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_life_buf, ircache.ircache_life_buf}},                               \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_pool_buf, ircache.ircache_pool_buf}},                               \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_entry_indirection_buf, ircache.ircache_entry_indirection_buf}},     \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_reposition_proposal_buf, ircache.ircache_reposition_proposal_buf}}, \
+        daxa::TaskViewVariant {                                                                                                      \
+        std::pair { TaskHeadName::AT.ircache_reposition_proposal_count_buf, ircache.ircache_reposition_proposal_count_buf }          \
     }
 
 DAXA_DECL_TASK_HEAD_BEGIN(ClearIrcachePoolCompute, 2)

@@ -73,11 +73,11 @@
     daxa_RWBufferPtr(AllocatorType_) var_name = push.uses.AllocatorType_##_allocator_buffer;
 
 #define SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(TaskHeadName, AllocatorType_, allocator)                                                          \
-    daxa::TaskViewVariant{std::pair{TaskHeadName::AllocatorType_##_allocator_buffer, allocator.allocator_buffer.task_resource}},                     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::AllocatorType_##_heap, allocator.element_buffer.task_resource}},                               \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::AllocatorType_##_available_elements, allocator.available_element_stack_buffer.task_resource}}, \
+    daxa::TaskViewVariant{std::pair{TaskHeadName::AT.AllocatorType_##_allocator_buffer, allocator.allocator_buffer.task_resource}},                     \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.AllocatorType_##_heap, allocator.element_buffer.task_resource}},                               \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.AllocatorType_##_available_elements, allocator.available_element_stack_buffer.task_resource}}, \
         daxa::TaskViewVariant {                                                                                                                      \
-        std::pair { TaskHeadName::AllocatorType_##_released_elements, allocator.released_element_stack_buffer.task_resource }                        \
+        std::pair { TaskHeadName::AT.AllocatorType_##_released_elements, allocator.released_element_stack_buffer.task_resource }                        \
     }
 
 #if defined(__cplusplus)

@@ -101,12 +101,12 @@ struct VoxelParticles {
         gpu_context.frame_task_graph.use_persistent_buffer(global_state.task_resource);
         gpu_context.frame_task_graph.use_persistent_buffer(cube_index_buffer.task_resource);
 
-        gpu_context.add(ComputeTask<VoxelParticlePerframeCompute, VoxelParticlePerframeComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<VoxelParticlePerframeCompute::Task, VoxelParticlePerframeComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"voxels/particles/perframe.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::gpu_output, gpu_context.task_output_buffer}},
-                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::particles_state, global_state.task_resource}},
+                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.gpu_output, gpu_context.task_output_buffer}},
+                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.particles_state, global_state.task_resource}},
                 VOXELS_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, voxel_world_buffers),
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, GrassStrandAllocator, grass.grass_allocator),
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, FlowerAllocator, flowers.flower_allocator),

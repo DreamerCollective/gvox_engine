@@ -40,17 +40,17 @@ inline auto blur_pyramid(GpuContext &gpu_context, daxa::TaskImageView input_imag
         daxa_u32 mip_i;
     };
     auto blur_dispatch = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, BlurComputePush &push, BlurTaskInfo const &info) {
-        auto const image_info = ti.device.info_image(ti.get(BlurCompute::output_tex).ids[0]).value();
+        auto const image_info = ti.device.info_image(ti.get(BlurCompute::AT.output_tex).ids[0]).value();
         auto downscale_factor = 1u << info.mip_i;
         ti.recorder.set_pipeline(pipeline);
         set_push_constant(ti, push);
         ti.recorder.dispatch({((image_info.size.x + downscale_factor - 1) / downscale_factor + 63) / 64, (image_info.size.y + downscale_factor - 1) / downscale_factor});
     };
-    gpu_context.add(ComputeTask<BlurCompute, BlurComputePush, BlurTaskInfo>{
+    gpu_context.add(ComputeTask<BlurCompute::Task, BlurComputePush, BlurTaskInfo>{
         .source = daxa::ShaderFile{"kajiya/blur.comp.glsl"},
         .views = std::array{
-            daxa::TaskViewVariant{std::pair{BlurCompute::input_tex, input_image}},
-            daxa::TaskViewVariant{std::pair{BlurCompute::output_tex, output.view({.base_mip_level = 0, .level_count = 1})}},
+            daxa::TaskViewVariant{std::pair{BlurCompute::AT.input_tex, input_image}},
+            daxa::TaskViewVariant{std::pair{BlurCompute::AT.output_tex, output.view({.base_mip_level = 0, .level_count = 1})}},
         },
         .callback_ = blur_dispatch,
         .info = {
@@ -62,11 +62,11 @@ inline auto blur_pyramid(GpuContext &gpu_context, daxa::TaskImageView input_imag
     for (uint32_t mip_i = 0; mip_i < mip_count - 1; ++mip_i) {
         auto src = output.view({.base_mip_level = mip_i + 0, .level_count = 1});
         auto dst = output.view({.base_mip_level = mip_i + 1, .level_count = 1});
-        gpu_context.add(ComputeTask<BlurCompute, BlurComputePush, BlurTaskInfo>{
+        gpu_context.add(ComputeTask<BlurCompute::Task, BlurComputePush, BlurTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/blur.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{BlurCompute::input_tex, src}},
-                daxa::TaskViewVariant{std::pair{BlurCompute::output_tex, dst}},
+                daxa::TaskViewVariant{std::pair{BlurCompute::AT.input_tex, src}},
+                daxa::TaskViewVariant{std::pair{BlurCompute::AT.output_tex, dst}},
             },
             .callback_ = blur_dispatch,
             .info = {
@@ -103,16 +103,16 @@ inline auto rev_blur_pyramid(GpuContext &gpu_context, daxa::TaskImageView input_
             daxa_u32 downsample_amount;
             daxa_f32 self_weight;
         };
-        gpu_context.add(ComputeTask<RevBlurCompute, RevBlurComputePush, RevBlurTaskInfo>{
+        gpu_context.add(ComputeTask<RevBlurCompute::Task, RevBlurComputePush, RevBlurTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/blur.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{RevBlurCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{RevBlurCompute::input_tail_tex, tail}},
-                daxa::TaskViewVariant{std::pair{RevBlurCompute::input_tex, src}},
-                daxa::TaskViewVariant{std::pair{RevBlurCompute::output_tex, dst}},
+                daxa::TaskViewVariant{std::pair{RevBlurCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{RevBlurCompute::AT.input_tail_tex, tail}},
+                daxa::TaskViewVariant{std::pair{RevBlurCompute::AT.input_tex, src}},
+                daxa::TaskViewVariant{std::pair{RevBlurCompute::AT.output_tex, dst}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, RevBlurComputePush &push, RevBlurTaskInfo const &info) {
-                auto const image_info = ti.device.info_image(ti.get(RevBlurCompute::output_tex).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(RevBlurCompute::AT.output_tex).ids[0]).value();
                 push.output_extent = {image_info.size.x / info.downsample_amount, image_info.size.y / info.downsample_amount, 1};
                 push.self_weight = info.self_weight;
                 ti.recorder.set_pipeline(pipeline);

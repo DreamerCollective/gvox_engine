@@ -103,11 +103,11 @@ DAXA_DECL_BUFFER_PTR(ChunkUpdate)
     ptr_type(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;      \
     ptr_type(VoxelMallocPageAllocator) voxel_malloc_page_allocator = push.uses.voxel_malloc_page_allocator;
 
-#define VOXELS_BUFFER_USES_ASSIGN(TaskHeadName, voxel_buffers)                                                    \
-    daxa::TaskViewVariant{std::pair{TaskHeadName::voxel_globals, voxel_buffers.voxel_globals.task_resource}},     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::voxel_chunks, voxel_buffers.voxel_chunks.task_resource}},   \
-        daxa::TaskViewVariant {                                                                                   \
-        std::pair { TaskHeadName::voxel_malloc_page_allocator, voxel_buffers.voxel_malloc.task_allocator_buffer } \
+#define VOXELS_BUFFER_USES_ASSIGN(TaskHeadName, voxel_buffers)                                                       \
+    daxa::TaskViewVariant{std::pair{TaskHeadName::AT.voxel_globals, voxel_buffers.voxel_globals.task_resource}},     \
+        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.voxel_chunks, voxel_buffers.voxel_chunks.task_resource}},   \
+        daxa::TaskViewVariant {                                                                                      \
+        std::pair { TaskHeadName::AT.voxel_malloc_page_allocator, voxel_buffers.voxel_malloc.task_allocator_buffer } \
     }
 
 struct VoxelWorldOutput {

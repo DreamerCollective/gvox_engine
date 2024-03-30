@@ -24,18 +24,18 @@ inline auto calculate_reprojection_map(GpuContext &gpu_context, GbufferDepth con
         .size = {gpu_context.render_resolution.x, gpu_context.render_resolution.y, 1},
         .name = "reprojection_image",
     });
-    gpu_context.add(ComputeTask<CalculateReprojectionMapCompute, CalculateReprojectionMapComputePush, NoTaskInfo>{
+    gpu_context.add(ComputeTask<CalculateReprojectionMapCompute::Task, CalculateReprojectionMapComputePush, NoTaskInfo>{
         .source = daxa::ShaderFile{"kajiya/calculate_reprojection_map.comp.glsl"},
         .views = std::array{
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::gpu_input, gpu_context.task_input_buffer}},
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::vs_normal_image_id, gbuffer_depth.geometric_normal}},
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::depth_image_id, gbuffer_depth.depth.current()}},
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::prev_depth_image_id, gbuffer_depth.depth.history()}},
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::velocity_image_id, velocity_image}},
-            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::dst_image_id, reprojection_map}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.depth_image_id, gbuffer_depth.depth.current()}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.prev_depth_image_id, gbuffer_depth.depth.history()}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.velocity_image_id, velocity_image}},
+            daxa::TaskViewVariant{std::pair{CalculateReprojectionMapCompute::AT.dst_image_id, reprojection_map}},
         },
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, CalculateReprojectionMapComputePush &push, NoTaskInfo const &) {
-            auto const image_info = ti.device.info_image(ti.get(CalculateReprojectionMapCompute::dst_image_id).ids[0]).value();
+            auto const image_info = ti.device.info_image(ti.get(CalculateReprojectionMapCompute::AT.dst_image_id).ids[0]).value();
             ti.recorder.set_pipeline(pipeline);
             set_push_constant(ti, push);
             ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});

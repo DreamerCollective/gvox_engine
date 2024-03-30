@@ -88,67 +88,67 @@ struct SsaoRenderer {
             .name = "ssao_image2",
         });
 
-        gpu_context.add(ComputeTask<SsaoCompute, SsaoComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<SsaoCompute::Task, SsaoComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ssao.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{SsaoCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{SsaoCompute::vs_normal_image_id, scaled_view_normal_image}},
-                daxa::TaskViewVariant{std::pair{SsaoCompute::depth_image_id, scaled_depth_image}},
-                daxa::TaskViewVariant{std::pair{SsaoCompute::ssao_image_id, ssao_image0}},
+                daxa::TaskViewVariant{std::pair{SsaoCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{SsaoCompute::AT.vs_normal_image_id, scaled_view_normal_image}},
+                daxa::TaskViewVariant{std::pair{SsaoCompute::AT.depth_image_id, scaled_depth_image}},
+                daxa::TaskViewVariant{std::pair{SsaoCompute::AT.ssao_image_id, ssao_image0}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, SsaoComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(SsaoCompute::ssao_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(SsaoCompute::AT.ssao_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
                 ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});
             },
         });
-        gpu_context.add(ComputeTask<SsaoSpatialFilterCompute, SsaoSpatialFilterComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<SsaoSpatialFilterCompute::Task, SsaoSpatialFilterComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ssao.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::vs_normal_image_id, scaled_view_normal_image}},
-                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::depth_image_id, scaled_depth_image}},
-                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::src_image_id, ssao_image0}},
-                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::dst_image_id, ssao_image1}},
+                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::AT.vs_normal_image_id, scaled_view_normal_image}},
+                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::AT.depth_image_id, scaled_depth_image}},
+                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::AT.src_image_id, ssao_image0}},
+                daxa::TaskViewVariant{std::pair{SsaoSpatialFilterCompute::AT.dst_image_id, ssao_image1}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, SsaoSpatialFilterComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(SsaoSpatialFilterCompute::dst_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(SsaoSpatialFilterCompute::AT.dst_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
                 ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});
             },
         });
-        gpu_context.add(ComputeTask<SsaoUpscaleCompute, SsaoUpscaleComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<SsaoUpscaleCompute::Task, SsaoUpscaleComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ssao.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::g_buffer_image_id, gbuffer_depth.gbuffer}},
-                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::depth_image_id, gbuffer_depth.depth.current()}},
-                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::src_image_id, ssao_image1}},
-                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::dst_image_id, ssao_image2}},
+                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::AT.depth_image_id, gbuffer_depth.depth.current()}},
+                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::AT.src_image_id, ssao_image1}},
+                daxa::TaskViewVariant{std::pair{SsaoUpscaleCompute::AT.dst_image_id, ssao_image2}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, SsaoUpscaleComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(SsaoUpscaleCompute::dst_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(SsaoUpscaleCompute::AT.dst_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
                 ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});
             },
         });
-        gpu_context.add(ComputeTask<SsaoTemporalFilterCompute, SsaoTemporalFilterComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<SsaoTemporalFilterCompute::Task, SsaoTemporalFilterComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ssao.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::reprojection_image_id, reprojection_map}},
-                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::history_image_id, prev_ssao_image}},
-                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::src_image_id, ssao_image2}},
-                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::dst_image_id, ssao_image}},
+                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::AT.reprojection_image_id, reprojection_map}},
+                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::AT.history_image_id, prev_ssao_image}},
+                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::AT.src_image_id, ssao_image2}},
+                daxa::TaskViewVariant{std::pair{SsaoTemporalFilterCompute::AT.dst_image_id, ssao_image}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, SsaoTemporalFilterComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(SsaoTemporalFilterCompute::dst_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(SsaoTemporalFilterCompute::AT.dst_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);

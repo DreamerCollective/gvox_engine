@@ -49,15 +49,15 @@ inline auto calculate_luminance_histogram(GpuContext &gpu_context, daxa::TaskIma
     struct CalculateHistogramTaskInfo {
         daxa_u32 input_mip_level;
     };
-    gpu_context.add(ComputeTask<CalculateHistogramCompute, CalculateHistogramComputePush, CalculateHistogramTaskInfo>{
+    gpu_context.add(ComputeTask<CalculateHistogramCompute::Task, CalculateHistogramComputePush, CalculateHistogramTaskInfo>{
         .source = daxa::ShaderFile{"kajiya/calculate_histogram.comp.glsl"},
         .views = std::array{
-            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::gpu_input, gpu_context.task_input_buffer}},
-            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::input_tex, blur_pyramid.view({.base_mip_level = input_mip_level, .level_count = 1})}},
-            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::output_buffer, tmp_histogram}},
+            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::AT.input_tex, blur_pyramid.view({.base_mip_level = input_mip_level, .level_count = 1})}},
+            daxa::TaskViewVariant{std::pair{CalculateHistogramCompute::AT.output_buffer, tmp_histogram}},
         },
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, CalculateHistogramComputePush &push, CalculateHistogramTaskInfo const &info) {
-            auto const image_info = ti.device.info_image(ti.get(CalculateHistogramCompute::input_tex).ids[0]).value();
+            auto const image_info = ti.device.info_image(ti.get(CalculateHistogramCompute::AT.input_tex).ids[0]).value();
             push.input_extent = {(image_info.size.x + ((1 << info.input_mip_level) - 1)) >> info.input_mip_level, (image_info.size.y + ((1 << info.input_mip_level) - 1)) >> info.input_mip_level};
             ti.recorder.set_pipeline(pipeline);
             set_push_constant(ti, push);

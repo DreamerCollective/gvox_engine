@@ -87,15 +87,15 @@ struct GbufferRenderer {
             .name = "depth_prepass_image",
         });
 
-        gpu_context.add(ComputeTask<TraceDepthPrepassCompute, TraceDepthPrepassComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<TraceDepthPrepassCompute::Task, TraceDepthPrepassComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"trace_primary.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{TraceDepthPrepassCompute::gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{TraceDepthPrepassCompute::AT.gpu_input, gpu_context.task_input_buffer}},
                 VOXELS_BUFFER_USES_ASSIGN(TraceDepthPrepassCompute, voxel_buffers),
-                daxa::TaskViewVariant{std::pair{TraceDepthPrepassCompute::render_depth_prepass_image, depth_prepass_image}},
+                daxa::TaskViewVariant{std::pair{TraceDepthPrepassCompute::AT.render_depth_prepass_image, depth_prepass_image}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TraceDepthPrepassComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(TraceDepthPrepassCompute::render_depth_prepass_image).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(TraceDepthPrepassCompute::AT.render_depth_prepass_image).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 set_push_constant(ti, push);
                 // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
@@ -109,21 +109,21 @@ struct GbufferRenderer {
             .name = "temp_depth_image",
         });
 
-        gpu_context.add(ComputeTask<TracePrimaryCompute, TracePrimaryComputePush, NoTaskInfo>{
+        gpu_context.add(ComputeTask<TracePrimaryCompute::Task, TracePrimaryComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"trace_primary.comp.glsl"},
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.gpu_input, gpu_context.task_input_buffer}},
                 VOXELS_BUFFER_USES_ASSIGN(TracePrimaryCompute, voxel_buffers),
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::debug_texture, gpu_context.task_debug_texture}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::render_depth_prepass_image, depth_prepass_image}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::g_buffer_image_id, gbuffer_depth.gbuffer}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::velocity_image_id, velocity_image}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::vs_normal_image_id, gbuffer_depth.geometric_normal}},
-                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::depth_image_id, temp_depth_image}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.debug_texture, gpu_context.task_debug_texture}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.render_depth_prepass_image, depth_prepass_image}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.velocity_image_id, velocity_image}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
+                daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.depth_image_id, temp_depth_image}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TracePrimaryComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(TracePrimaryCompute::g_buffer_image_id).ids[0]).value();
+                auto const image_info = ti.device.info_image(ti.get(TracePrimaryCompute::AT.g_buffer_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
                 // debug_utils::Console::add_log(fmt::format("0 {}, {}", image_info.size.x, image_info.size.y));
                 set_push_constant(ti, push);
@@ -133,7 +133,7 @@ struct GbufferRenderer {
             },
         });
 
-        gpu_context.add(RasterTask<R32D32Blit, R32D32BlitPush, NoTaskInfo>{
+        gpu_context.add(RasterTask<R32D32Blit::Task, R32D32BlitPush, NoTaskInfo>{
             .vert_source = daxa::ShaderFile{"FULL_SCREEN_TRIANGLE_VERTEX_SHADER"},
             .frag_source = daxa::ShaderFile{"R32_D32_BLIT"},
             .depth_test = daxa::DepthTestInfo{
@@ -142,14 +142,14 @@ struct GbufferRenderer {
                 .depth_test_compare_op = daxa::CompareOp::ALWAYS,
             },
             .views = std::array{
-                daxa::TaskViewVariant{std::pair{R32D32Blit::input_tex, temp_depth_image}},
-                daxa::TaskViewVariant{std::pair{R32D32Blit::output_tex, depth_image}},
+                daxa::TaskViewVariant{std::pair{R32D32Blit::AT.input_tex, temp_depth_image}},
+                daxa::TaskViewVariant{std::pair{R32D32Blit::AT.output_tex, depth_image}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::RasterPipeline &pipeline, R32D32BlitPush &push, NoTaskInfo const &) {
-                auto render_image = ti.get(R32D32Blit::output_tex).ids[0];
+                auto render_image = ti.get(R32D32Blit::AT.output_tex).ids[0];
                 auto const image_info = ti.device.info_image(render_image).value();
                 auto renderpass_recorder = std::move(ti.recorder).begin_renderpass({
-                    .depth_attachment = {{.image_view = ti.get(R32D32Blit::output_tex).view_ids[0], .load_op = daxa::AttachmentLoadOp::CLEAR, .clear_value = std::array{0.0f, 0.0f, 0.0f, 0.0f}}},
+                    .depth_attachment = {{.image_view = ti.get(R32D32Blit::AT.output_tex).view_ids[0], .load_op = daxa::AttachmentLoadOp::CLEAR, .clear_value = std::array{0.0f, 0.0f, 0.0f, 0.0f}}},
                     .render_area = {.x = 0, .y = 0, .width = image_info.size.x, .height = image_info.size.y},
                 });
                 renderpass_recorder.set_pipeline(pipeline);

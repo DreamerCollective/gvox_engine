@@ -5,19 +5,19 @@
 #if defined(SHADOW_MAP)
 
 #if defined(GRASS)
-DAXA_DECL_PUSH_CONSTANT(GrassStrandCubeParticleRasterShadowPush, push)
+DAXA_DECL_PUSH_CONSTANT(GrassStrandCubeParticleShadowRasterPush, push)
 daxa_BufferPtr(GrassStrand) grass_strands = push.uses.grass_strands;
 #elif defined(FLOWER)
-DAXA_DECL_PUSH_CONSTANT(FlowerCubeParticleRasterShadowPush, push)
+DAXA_DECL_PUSH_CONSTANT(FlowerCubeParticleShadowRasterPush, push)
 daxa_BufferPtr(Flower) flowers = push.uses.flowers;
 #elif defined(SIM_PARTICLE)
-DAXA_DECL_PUSH_CONSTANT(SimParticleCubeParticleRasterShadowPush, push)
+DAXA_DECL_PUSH_CONSTANT(SimParticleCubeParticleShadowRasterPush, push)
 daxa_BufferPtr(SimulatedVoxelParticle) simulated_voxel_particles = push.uses.simulated_voxel_particles;
 #elif defined(TREE_PARTICLE)
-DAXA_DECL_PUSH_CONSTANT(TreeParticleCubeParticleRasterShadowPush, push)
+DAXA_DECL_PUSH_CONSTANT(TreeParticleCubeParticleShadowRasterPush, push)
 daxa_BufferPtr(TreeParticle) tree_particles = push.uses.tree_particles;
 #elif defined(FIRE_PARTICLE)
-DAXA_DECL_PUSH_CONSTANT(FireParticleCubeParticleRasterShadowPush, push)
+DAXA_DECL_PUSH_CONSTANT(FireParticleCubeParticleShadowRasterPush, push)
 daxa_BufferPtr(FireParticle) fire_particles = push.uses.fire_particles;
 #endif
 
