@@ -69,8 +69,13 @@ void particle_render(
 
     const float splat_size_threshold = 5.0;
     const bool should_splat = ps_size < splat_size_threshold;
+    const float stochastic_threshold = 0.8;
 
-    if (ps_size <= 0.25) {
+    float stochastic_coverage = ps_size * ps_size;
+    if ((stochastic_coverage < stochastic_threshold) &&
+        ((good_rand_hash(packed_vertex.data) & 0xffff) > stochastic_coverage * (0xffff / stochastic_threshold))) {
+        // "Cull" small voxels in a stable, stochastic way by moving past the z = 0 plane.
+        // Assumes voxels are in randomized order.
         return;
     }
 

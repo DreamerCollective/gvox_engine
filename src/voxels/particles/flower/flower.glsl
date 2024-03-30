@@ -2,19 +2,19 @@
 
 #include <utilities/gpu/noise.glsl>
 #include <g_samplers>
+#include <g_value_noise>
 
 #include "../particle.glsl"
 
 vec2 flower_get_rot_offset(in out Flower self, float time) {
-    // FractalNoiseConfig noise_conf = FractalNoiseConfig(
-    //     /* .amplitude   = */ 1.0,
-    //     /* .persistance = */ 0.5,
-    //     /* .scale       = */ 0.025,
-    //     /* .lacunarity  = */ 4.5,
-    //     /* .octaves     = */ 4);
-    // vec4 noise_val = fractal_noise(value_noise_texture, g_sampler_llr, self.origin + vec3(time * 0.5, sin(time), 0), noise_conf);
-    // float rot = noise_val.x * 100.0;
-    float rot = time * 1.5 + self.origin.x * (sin(time * 0.157 + self.origin.z * 1.12) * 0.125 + 0.75) + self.origin.y * (cos(time * 0.063 + self.origin.z * 0.98) * 0.125 + 0.75);
+    FractalNoiseConfig noise_conf = FractalNoiseConfig(
+        /* .amplitude   = */ 1.0,
+        /* .persistance = */ 0.3,
+        /* .scale       = */ 0.15,
+        /* .lacunarity  = */ 2.5,
+        /* .octaves     = */ 4);
+    vec4 noise_val = fractal_noise(g_value_noise_tex, g_sampler_llr, self.origin + vec3(time * 0.5, sin(time * 1.0), 0), noise_conf);
+    float rot = noise_val.x * 41.0;
     return vec2(sin(rot), cos(rot));
 }
 

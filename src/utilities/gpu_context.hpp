@@ -26,6 +26,7 @@ struct GpuContext {
     daxa::TaskImage task_swapchain_image{daxa::TaskImageInfo{.swapchain_image = true}};
 
     daxa::ImageId value_noise_image;
+    daxa::ImageViewId value_noise_image_view;
     daxa::ImageId blue_noise_vec2_image;
     daxa::ImageId debug_texture;
     daxa::ImageId test_texture;
@@ -41,6 +42,7 @@ struct GpuContext {
     daxa::SamplerId sampler_llr;
 
     daxa::TaskImage task_value_noise_image{{.name = "task_value_noise_image"}};
+    daxa::TaskImageView task_value_noise_image_view{};
     daxa::TaskImage task_blue_noise_vec2_image{{.name = "task_blue_noise_vec2_image"}};
     daxa::TaskImage task_debug_texture{{.name = "task_debug_texture"}};
     daxa::TaskImage task_test_texture{{.name = "task_test_texture"}};

@@ -7,7 +7,6 @@ daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 daxa_BufferPtr(GpuGvoxModel) gvox_model = push.uses.gvox_model;
 daxa_RWBufferPtr(VoxelWorldGlobals) voxel_globals = push.uses.voxel_globals;
 daxa_RWBufferPtr(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;
-daxa_ImageViewIndex value_noise_texture = push.uses.value_noise_texture;
 
 #include <utilities/gpu/math.glsl>
 #include <voxels/impl/voxels.glsl>
@@ -125,7 +124,6 @@ SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(GrassStrandAllocator, grass_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FlowerAllocator, flower_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(TreeParticleAllocator, tree_particle_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FireParticleAllocator, fire_particle_allocator)
-daxa_ImageViewIndex value_noise_texture = push.uses.value_noise_texture;
 daxa_ImageViewIndex test_texture = push.uses.test_texture;
 daxa_ImageViewIndex test_texture2 = push.uses.test_texture2;
 
@@ -226,7 +224,6 @@ daxa_BufferPtr(VoxelWorldGlobals) voxel_globals = push.uses.voxel_globals;
 daxa_BufferPtr(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;
 daxa_BufferPtr(VoxelMallocPageAllocator) voxel_malloc_page_allocator = push.uses.voxel_malloc_page_allocator;
 daxa_RWBufferPtr(TempVoxelChunk) temp_voxel_chunks = push.uses.temp_voxel_chunks;
-daxa_ImageViewIndex value_noise_texture = push.uses.value_noise_texture;
 
 #include <utilities/gpu/math.glsl>
 #include <utilities/gpu/noise.glsl>

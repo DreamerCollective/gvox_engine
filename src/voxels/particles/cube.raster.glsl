@@ -78,9 +78,11 @@ void main() {
     ParticleVertex vert = get_fire_particle_vertex(gpu_input, fire_particles, packed_vertex);
 #endif
 
+    ViewRayContext vrc = vrc_from_uv(gpu_input, vec2(0.0));
+
     const vec3 diff = vec3(VOXEL_SIZE);
     vec3 center_ws = vert.pos;
-    const vec3 camera_position = deref(gpu_input).player.pos;
+    const vec3 camera_position = ray_origin_ws(vrc);
     const vec3 camera_to_center = center_ws - camera_position;
     const vec3 ray_dir_ws = normalize(camera_to_center);
     const vec3 ray_dir_vs = (deref(gpu_input).player.cam.world_to_view * vec4(ray_dir_ws, 0)).xyz;

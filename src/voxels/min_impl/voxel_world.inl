@@ -11,7 +11,7 @@ struct VoxelWorld {
 
     void record_startup(GpuContext &);
     void begin_frame(daxa::Device &, VoxelWorldOutput const &);
-    void record_frame(GpuContext &, daxa::TaskBufferView, daxa::TaskImageView, VoxelParticles &);
+    void record_frame(GpuContext &, daxa::TaskBufferView, VoxelParticles &);
 };
 
 #endif

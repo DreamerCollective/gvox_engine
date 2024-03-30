@@ -28,18 +28,19 @@ SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, FlowerAllocator)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), shadow_cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), splat_rendered_particle_verts)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_DECL_TASK_HEAD_END
 struct FlowerSimComputePush {
     DAXA_TH_BLOB(FlowerSimCompute, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(FlowerCubeParticleRaster, 9)
+DAXA_DECL_TASK_HEAD_BEGIN(FlowerCubeParticleRaster, 10)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(Flower), flowers)
 DAXA_TH_BUFFER(INDEX_READ, indices)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, g_buffer_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, velocity_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, vs_normal_image_id)
@@ -49,23 +50,25 @@ struct FlowerCubeParticleRasterPush {
     DAXA_TH_BLOB(FlowerCubeParticleRaster, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(FlowerCubeParticleRasterShadow, 6)
+DAXA_DECL_TASK_HEAD_BEGIN(FlowerCubeParticleRasterShadow, 7)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(Flower), flowers)
 DAXA_TH_BUFFER(INDEX_READ, indices)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE_INDEX(DEPTH_ATTACHMENT, REGULAR_2D, depth_image_id)
 DAXA_DECL_TASK_HEAD_END
 struct FlowerCubeParticleRasterShadowPush {
     DAXA_TH_BLOB(FlowerCubeParticleRasterShadow, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(FlowerSplatParticleRaster, 8)
+DAXA_DECL_TASK_HEAD_BEGIN(FlowerSplatParticleRaster, 9)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), splat_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(Flower), flowers)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, g_buffer_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, velocity_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, vs_normal_image_id)
@@ -116,7 +119,7 @@ struct Flowers {
                 daxa::TaskViewVariant{std::pair{FlowerSimCompute::cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerSimCompute::shadow_cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerSimCompute::splat_rendered_particle_verts, splat_rendered_particle_verts.task_resource}},
-                daxa::TaskViewVariant{std::pair{FlowerSimCompute::value_noise_texture, gpu_context.task_value_noise_image.view().view({.layer_count = 256})}},
+                daxa::TaskViewVariant{std::pair{FlowerSimCompute::value_noise_texture, gpu_context.task_value_noise_image_view}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, FlowerSimComputePush &push, NoTaskInfo const &) {
                 ti.recorder.set_pipeline(pipeline);
@@ -151,6 +154,7 @@ struct Flowers {
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::indices, cube_index_buffer}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::flowers, flower_allocator.element_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::g_buffer_image_id, gbuffer_depth.gbuffer}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::velocity_image_id, velocity_image}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRaster::vs_normal_image_id, gbuffer_depth.geometric_normal}},
@@ -201,6 +205,7 @@ struct Flowers {
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRasterShadow::cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRasterShadow::flowers, flower_allocator.element_buffer.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRasterShadow::indices, cube_index_buffer}},
+                daxa::TaskViewVariant{std::pair{FlowerCubeParticleRasterShadow::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{FlowerCubeParticleRasterShadow::depth_image_id, shadow_depth}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::RasterPipeline &pipeline, FlowerCubeParticleRasterShadowPush &push, NoTaskInfo const &) {
@@ -249,6 +254,7 @@ struct Flowers {
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::particles_state, particles_state}},
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::splat_rendered_particle_verts, splat_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::flowers, flower_allocator.element_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::g_buffer_image_id, gbuffer_depth.gbuffer}},
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::velocity_image_id, velocity_image}},
                 daxa::TaskViewVariant{std::pair{FlowerSplatParticleRaster::vs_normal_image_id, gbuffer_depth.geometric_normal}},

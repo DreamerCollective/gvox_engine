@@ -21,18 +21,19 @@ SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, GrassStrandAlloca
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), shadow_cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), splat_rendered_particle_verts)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
+DAXA_TH_IMAGE(COMPUTE_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_DECL_TASK_HEAD_END
 struct GrassStrandSimComputePush {
     DAXA_TH_BLOB(GrassStrandSimCompute, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandCubeParticleRaster, 9)
+DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandCubeParticleRaster, 10)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GrassStrand), grass_strands)
 DAXA_TH_BUFFER(INDEX_READ, indices)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, g_buffer_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, velocity_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, vs_normal_image_id)
@@ -42,23 +43,25 @@ struct GrassStrandCubeParticleRasterPush {
     DAXA_TH_BLOB(GrassStrandCubeParticleRaster, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandCubeParticleRasterShadow, 6)
+DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandCubeParticleRasterShadow, 7)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GrassStrand), grass_strands)
 DAXA_TH_BUFFER(INDEX_READ, indices)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE_INDEX(DEPTH_ATTACHMENT, REGULAR_2D, depth_image_id)
 DAXA_DECL_TASK_HEAD_END
 struct GrassStrandCubeParticleRasterShadowPush {
     DAXA_TH_BLOB(GrassStrandCubeParticleRasterShadow, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandSplatParticleRaster, 8)
+DAXA_DECL_TASK_HEAD_BEGIN(GrassStrandSplatParticleRaster, 9)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(DRAW_INDIRECT_INFO_READ, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(PackedParticleVertex), splat_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(GRAPHICS_SHADER_READ, daxa_BufferPtr(GrassStrand), grass_strands)
+DAXA_TH_IMAGE(VERTEX_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, g_buffer_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, velocity_image_id)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, vs_normal_image_id)
@@ -109,7 +112,7 @@ struct GrassStrands {
                 daxa::TaskViewVariant{std::pair{GrassStrandSimCompute::cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSimCompute::shadow_cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSimCompute::splat_rendered_particle_verts, splat_rendered_particle_verts.task_resource}},
-                daxa::TaskViewVariant{std::pair{GrassStrandSimCompute::value_noise_texture, gpu_context.task_value_noise_image.view().view({.layer_count = 256})}},
+                daxa::TaskViewVariant{std::pair{GrassStrandSimCompute::value_noise_texture, gpu_context.task_value_noise_image_view}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, GrassStrandSimComputePush &push, NoTaskInfo const &) {
                 ti.recorder.set_pipeline(pipeline);
@@ -144,6 +147,7 @@ struct GrassStrands {
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::indices, cube_index_buffer}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::grass_strands, grass_allocator.element_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::g_buffer_image_id, gbuffer_depth.gbuffer}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::velocity_image_id, velocity_image}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRaster::vs_normal_image_id, gbuffer_depth.geometric_normal}},
@@ -194,6 +198,7 @@ struct GrassStrands {
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRasterShadow::cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRasterShadow::grass_strands, grass_allocator.element_buffer.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRasterShadow::indices, cube_index_buffer}},
+                daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRasterShadow::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{GrassStrandCubeParticleRasterShadow::depth_image_id, shadow_depth}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::RasterPipeline &pipeline, GrassStrandCubeParticleRasterShadowPush &push, NoTaskInfo const &) {
@@ -242,6 +247,7 @@ struct GrassStrands {
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::particles_state, particles_state}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::splat_rendered_particle_verts, splat_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::grass_strands, grass_allocator.element_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::value_noise_texture, gpu_context.task_value_noise_image_view}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::g_buffer_image_id, gbuffer_depth.gbuffer}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::velocity_image_id, velocity_image}},
                 daxa::TaskViewVariant{std::pair{GrassStrandSplatParticleRaster::vs_normal_image_id, gbuffer_depth.geometric_normal}},

@@ -14,7 +14,7 @@ DAXA_DECL_BUFFER_PTR(TreeParticle)
 DECL_SIMPLE_STATIC_ALLOCATOR(TreeParticleAllocator, TreeParticle, MAX_TREE_PARTICLES, daxa_u32)
 #define CONSERVATIVE_PARTICLE_PER_TREE_PARTICLE 2
 
-DAXA_DECL_TASK_HEAD_BEGIN(TreeParticleSimCompute, 6 + VOXEL_BUFFER_USE_N + SIMPLE_STATIC_ALLOCATOR_BUFFER_USE_N)
+DAXA_DECL_TASK_HEAD_BEGIN(TreeParticleSimCompute, 5 + VOXEL_BUFFER_USE_N + SIMPLE_STATIC_ALLOCATOR_BUFFER_USE_N)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
 VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
@@ -22,7 +22,6 @@ SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, TreeParticleAlloc
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), shadow_cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), splat_rendered_particle_verts)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D_ARRAY, value_noise_texture)
 DAXA_DECL_TASK_HEAD_END
 struct TreeParticleSimComputePush {
     DAXA_TH_BLOB(TreeParticleSimCompute, uses)
@@ -110,7 +109,6 @@ struct TreeParticles {
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::shadow_cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::splat_rendered_particle_verts, splat_rendered_particle_verts.task_resource}},
-                daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::value_noise_texture, gpu_context.task_value_noise_image.view().view({.layer_count = 256})}},
             },
             .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TreeParticleSimComputePush &push, NoTaskInfo const &) {
                 ti.recorder.set_pipeline(pipeline);

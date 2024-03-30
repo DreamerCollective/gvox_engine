@@ -75,6 +75,13 @@ GpuContext::GpuContext() {
         .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
         .name = "value_noise_image",
     });
+    value_noise_image_view = device.create_image_view({
+        .type = daxa::ImageViewType::REGULAR_2D_ARRAY,
+        .format = daxa::Format::R8_UNORM,
+        .image = value_noise_image,
+        .slice = {.layer_count = 256},
+        .name = "value_noise_image_view",
+    });
     blue_noise_vec2_image = device.create_image({
         .flags = daxa::ImageCreateFlagBits::COMPATIBLE_2D_ARRAY,
         .dimensions = 3,
@@ -130,11 +137,20 @@ GpuContext::GpuContext() {
     g_samplers_header.contents += "daxa_SamplerId g_sampler_llr = daxa_SamplerId(" + std::to_string(std::bit_cast<uint64_t>(sampler_llr)) + ");\n";
     pipeline_manager->add_virtual_file(g_samplers_header);
 
+    auto g_value_noise_header = daxa::VirtualFileInfo{
+        .name = "g_value_noise",
+        .contents = "#pragma once\n#include <daxa/daxa.glsl>\n",
+    };
+    g_value_noise_header.contents += "daxa_ImageViewIndex g_value_noise_tex = daxa_ImageViewIndex(" + std::to_string(std::bit_cast<uint64_t>(value_noise_image_view.index)) + ");\n";
+    pipeline_manager->add_virtual_file(g_value_noise_header);
+
     task_input_buffer.set_buffers({.buffers = std::array{input_buffer}});
     task_output_buffer.set_buffers({.buffers = std::array{output_buffer}});
     task_staging_output_buffer.set_buffers({.buffers = std::array{staging_output_buffer}});
 
     task_value_noise_image.set_images({.images = std::array{value_noise_image}});
+    task_value_noise_image_view = task_value_noise_image.view().view({.layer_count = 256});
+
     task_blue_noise_vec2_image.set_images({.images = std::array{blue_noise_vec2_image}});
 
     {
@@ -384,6 +400,7 @@ GpuContext::GpuContext() {
 
 GpuContext::~GpuContext() {
     device.destroy_image(value_noise_image);
+    device.destroy_image_view(value_noise_image_view);
     device.destroy_image(blue_noise_vec2_image);
     if (!debug_texture.is_empty()) {
         device.destroy_image(debug_texture);
@@ -441,7 +458,7 @@ void GpuContext::update_seeded_value_noise(uint64_t seed) {
     temp_task_graph.use_persistent_image(task_value_noise_image);
     temp_task_graph.add_task({
         .attachments = {
-            daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, daxa::ImageViewType::REGULAR_2D, task_value_noise_image.view().view({.layer_count = 256})),
+            daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, daxa::ImageViewType::REGULAR_2D, task_value_noise_image_view),
         },
         .task = [this, seed](daxa::TaskInterface const &ti) {
             auto staging_buffer = ti.device.create_buffer({

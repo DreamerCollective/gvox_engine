@@ -44,7 +44,7 @@ void player_startup(Player &PLAYER) {
     PLAYER.pos = vec3(0.01f, 0.02f, 0.03f + ground_level);
     PLAYER.cam_pos_offset = vec3(0.0);
     PLAYER.vel = vec3(0.0);
-    PLAYER.player_unit_offset = daxa_i32vec3(0, 0, 0);
+    PLAYER.player_unit_offset = daxa_i32vec3(-183, -110, -47);
     // PLAYER.pos = vec3(150.01, 150.02, 80.03);
     // PLAYER.pos = vec3(66.01, 38.02, 14.01);
 
@@ -289,7 +289,7 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
         sample_offset.x * +2.0f, sample_offset.y * +2.0f, 0, 1);
 
     vec3 cam_pos_offset_sign = sign(PLAYER.cam_pos_offset);
-    const float interp_speed = std::max(length(PLAYER.cam_pos_offset) * VOXEL_SCL, 0.25f);
+    const float interp_speed = std::max(length(PLAYER.cam_pos_offset) * float(VOXEL_SCL), 0.25f);
     PLAYER.cam_pos_offset = PLAYER.cam_pos_offset - cam_pos_offset_sign * dt * interp_speed;
 
     vec3 new_cam_pos_offset_sign = sign(PLAYER.cam_pos_offset);

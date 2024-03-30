@@ -297,7 +297,7 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
     }
 }
 
-void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, daxa::TaskImageView task_value_noise_image, VoxelParticles &particles) {
+void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles) {
     gpu_context.add(ComputeTask<VoxelWorldPerframeCompute, VoxelWorldPerframeComputePush, NoTaskInfo>{
         .source = daxa::ShaderFile{"voxels/impl/perframe.comp.glsl"},
         .views = std::array{
@@ -320,7 +320,7 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
             daxa::TaskViewVariant{std::pair{PerChunkCompute::gvox_model, task_gvox_model_buffer}},
             daxa::TaskViewVariant{std::pair{PerChunkCompute::voxel_globals, buffers.voxel_globals.task_resource}},
             daxa::TaskViewVariant{std::pair{PerChunkCompute::voxel_chunks, buffers.voxel_chunks.task_resource}},
-            daxa::TaskViewVariant{std::pair{PerChunkCompute::value_noise_texture, task_value_noise_image.view({.layer_count = 256})}},
+            daxa::TaskViewVariant{std::pair{PerChunkCompute::value_noise_texture, gpu_context.task_value_noise_image_view}},
         },
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, PerChunkComputePush &push, NoTaskInfo const &) {
             ti.recorder.set_pipeline(pipeline);
@@ -348,7 +348,7 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, FlowerAllocator, particles.flowers.flower_allocator),
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, TreeParticleAllocator, particles.tree_particles.tree_particle_allocator),
             SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(ChunkEditCompute, FireParticleAllocator, particles.fire_particles.fire_particle_allocator),
-            daxa::TaskViewVariant{std::pair{ChunkEditCompute::value_noise_texture, task_value_noise_image.view({.layer_count = 256})}},
+            daxa::TaskViewVariant{std::pair{ChunkEditCompute::value_noise_texture, gpu_context.task_value_noise_image_view}},
             daxa::TaskViewVariant{std::pair{ChunkEditCompute::test_texture, gpu_context.task_test_texture}},
             daxa::TaskViewVariant{std::pair{ChunkEditCompute::test_texture2, gpu_context.task_test_texture2}},
         },
@@ -371,7 +371,7 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
             daxa::TaskViewVariant{std::pair{ChunkEditPostProcessCompute::voxel_chunks, buffers.voxel_chunks.task_resource}},
             daxa::TaskViewVariant{std::pair{ChunkEditPostProcessCompute::voxel_malloc_page_allocator, buffers.voxel_malloc.task_allocator_buffer}},
             daxa::TaskViewVariant{std::pair{ChunkEditPostProcessCompute::temp_voxel_chunks, task_temp_voxel_chunks_buffer}},
-            daxa::TaskViewVariant{std::pair{ChunkEditPostProcessCompute::value_noise_texture, task_value_noise_image.view({.layer_count = 256})}},
+            daxa::TaskViewVariant{std::pair{ChunkEditPostProcessCompute::value_noise_texture, gpu_context.task_value_noise_image_view}},
         },
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, ChunkEditPostProcessComputePush &push, NoTaskInfo const &) {
             ti.recorder.set_pipeline(pipeline);

@@ -10,7 +10,6 @@ VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
 daxa_RWBufferPtr(PackedParticleVertex) cube_rendered_particle_verts = push.uses.cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) shadow_cube_rendered_particle_verts = push.uses.shadow_cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses.splat_rendered_particle_verts;
-daxa_ImageViewIndex value_noise_texture = push.uses.value_noise_texture;
 
 #define UserAllocatorType GrassStrandAllocator
 #define UserIndexType uint

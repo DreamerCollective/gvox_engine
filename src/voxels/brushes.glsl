@@ -4,6 +4,7 @@
 #include <utilities/gpu/noise.glsl>
 
 #include <g_samplers>
+#include <g_value_noise>
 
 bool mandelbulb(in vec3 c, in out vec3 color) {
     vec3 z = c;
@@ -37,7 +38,7 @@ vec4 terrain_noise(vec3 p) {
         /* .scale       = */ 0.005,
         /* .lacunarity  = */ 4.5,
         /* .octaves     = */ 6);
-    vec4 val = fractal_noise(value_noise_texture, g_sampler_llr, p, noise_conf);
+    vec4 val = fractal_noise(g_value_noise_tex, g_sampler_llr, p, noise_conf);
     // const float ground_level = 6362000.0;
     const float ground_level = 0.0;
     val.x += (p.z - ground_level + 100.0) * 0.003 - 0.4;
@@ -262,7 +263,7 @@ void try_spawn_grass(in out Voxel voxel, vec3 nrm) {
     // randomly spawn grass
     float r2 = good_rand(voxel_pos.xy);
     float upwards = dot(nrm, vec3(0, 0, 1));
-    if (upwards > 0.65 && r2 < 0.75) {
+    if (upwards > 0.35 && r2 < 0.75) {
         voxel.color = pow(vec3(85, 166, 78) / 255.0 * 0.5, vec3(2.2));
         voxel.material_type = 1;
         voxel.roughness = 1.0;
@@ -280,7 +281,7 @@ void try_spawn_grass(in out Voxel voxel, vec3 nrm) {
                     /* .scale       = */ 0.1,
                     /* .lacunarity  = */ 2,
                     /* .octaves     = */ 3);
-                vec4 flower_noise_val = fractal_noise(value_noise_texture, g_sampler_llr, vec3(voxel_pos.xy, 0), noise_conf);
+                vec4 flower_noise_val = fractal_noise(g_value_noise_tex, g_sampler_llr, vec3(voxel_pos.xy, 0), noise_conf);
                 float v = flower_noise_val.x * (1.0 / 0.875);
 
                 uint flower_type = 0;
@@ -319,7 +320,7 @@ void brushgen_world_terrain(in out Voxel voxel) {
         voxel.roughness = 1.0;
         if (SHOULD_COLOR_WORLD) {
             float r = good_rand(-val);
-            if (val > -0.05 && upwards > 0.5) {
+            if (val > -0.05 && upwards > 0.25) {
                 voxel.color = vec3(0.13, 0.09, 0.05);
                 if (r < 0.5) {
                     voxel.color.r *= 0.5;
@@ -466,7 +467,7 @@ void brush_remove_grass(in out Voxel voxel) {
 }
 
 void brush_remove_ball(in out Voxel voxel) {
-    float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 6.0 * VOXEL_SIZE);
+    float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 32.0 * VOXEL_SIZE);
     if (sd < 0) {
         voxel.color = vec3(0, 0, 0);
         voxel.material_type = 0;
@@ -576,7 +577,7 @@ void brush_fire(in out Voxel voxel) {
         voxel.normal = vec3(0, 0, 1);
     } else if (sd_flame < 0) {
         voxel.material_type = 3;
-        voxel.color = vec3(0.95, 0.15 + floor((flame_rand + voxel_pos.z - lantern_c.z) * 2.0) * 0.1, 0.05);
+        voxel.color = vec3(0.95, 0.2 + floor((flame_rand + voxel_pos.z - lantern_c.z) * 2.0) * 0.05, 0.05);
         voxel.roughness = 0.3 + flame_rand * 0.3;
         voxel.normal = vec3(0, 0, 1);
         if (sd_flame > -VOXEL_SIZE) {
@@ -603,7 +604,7 @@ void brush_torch(in out Voxel voxel) {
         voxel.normal = vec3(0, 0, 1);
     } else if (sd_flame < 0) {
         voxel.material_type = 3;
-        voxel.color = vec3(0.95, 0.05 + floor(flame_rand + voxel_pos.z - lantern_c.z) * 0.1, 0.05);
+        voxel.color = vec3(0.95, 0.15, 0.05);
         voxel.roughness = 0.3 + flame_rand * 0.3;
         voxel.normal = vec3(0, 0, 1);
 
