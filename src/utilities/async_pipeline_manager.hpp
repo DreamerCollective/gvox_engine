@@ -9,12 +9,13 @@
 #include <daxa/daxa.hpp>
 #include <daxa/utils/pipeline_manager.hpp>
 
-struct AsyncManagedComputePipeline {
-    using PipelineT = daxa::ComputePipeline;
-    std::shared_ptr<daxa::ComputePipeline> pipeline;
+template<typename PipelineType>
+struct AsyncManagedPipeline {
+    using PipelineT = PipelineType;
+    std::shared_ptr<PipelineT> pipeline;
 #if ENABLE_THREAD_POOL
-    std::shared_ptr<std::promise<std::shared_ptr<daxa::ComputePipeline>>> pipeline_promise;
-    std::future<std::shared_ptr<daxa::ComputePipeline>> pipeline_future;
+    std::shared_ptr<std::promise<std::shared_ptr<PipelineT>>> pipeline_promise;
+    std::future<std::shared_ptr<PipelineT>> pipeline_future;
 #endif
 
     auto is_valid() -> bool {
@@ -26,31 +27,14 @@ struct AsyncManagedComputePipeline {
 #endif
         return pipeline && pipeline->is_valid();
     }
-    auto get() -> daxa::ComputePipeline & {
+    auto get() -> PipelineT & {
         return *pipeline;
     }
 };
-struct AsyncManagedRasterPipeline {
-    using PipelineT = daxa::RasterPipeline;
-    std::shared_ptr<daxa::RasterPipeline> pipeline;
-#if ENABLE_THREAD_POOL
-    std::shared_ptr<std::promise<std::shared_ptr<daxa::RasterPipeline>>> pipeline_promise;
-    std::future<std::shared_ptr<daxa::RasterPipeline>> pipeline_future;
-#endif
 
-    auto is_valid() -> bool {
-#if ENABLE_THREAD_POOL
-        if (pipeline_future.valid()) {
-            pipeline_future.wait();
-            pipeline = pipeline_future.get();
-        }
-#endif
-        return pipeline && pipeline->is_valid();
-    }
-    auto get() -> daxa::RasterPipeline & {
-        return *pipeline;
-    }
-};
+using AsyncManagedComputePipeline = AsyncManagedPipeline<daxa::ComputePipeline>;
+using AsyncManagedRayTracingPipeline = AsyncManagedPipeline<daxa::RayTracingPipeline>;
+using AsyncManagedRasterPipeline = AsyncManagedPipeline<daxa::RasterPipeline>;
 
 struct AsyncPipelineManager {
     std::array<daxa::PipelineManager, 8> pipeline_managers;
@@ -122,6 +106,44 @@ struct AsyncPipelineManager {
             return {};
         }
         auto result = AsyncManagedComputePipeline{};
+        result.pipeline = compile_result.value();
+        if (!compile_result.value()->is_valid()) {
+            debug_utils::Console::add_log(compile_result.message());
+        }
+        return result;
+#endif
+    }
+    auto add_ray_tracing_pipeline(daxa::RayTracingPipelineCompileInfo const &info) -> AsyncManagedRayTracingPipeline {
+#if ENABLE_THREAD_POOL
+        auto pipeline_promise = std::make_shared<std::promise<std::shared_ptr<daxa::RayTracingPipeline>>>();
+        auto result = AsyncManagedRayTracingPipeline{};
+        result.pipeline_promise = pipeline_promise;
+        result.pipeline_future = pipeline_promise->get_future();
+        auto info_copy = info;
+
+        thread_pool.enqueue([this, pipeline_promise, info_copy]() {
+            auto [pipeline_manager, lock] = get_pipeline_manager();
+            auto compile_result = pipeline_manager.add_ray_tracing_pipeline(info_copy);
+            if (compile_result.is_err()) {
+                debug_utils::Console::add_log(compile_result.message());
+                return;
+            }
+            if (!compile_result.value()->is_valid()) {
+                debug_utils::Console::add_log(compile_result.message());
+                return;
+            }
+            pipeline_promise->set_value(compile_result.value());
+        });
+
+        return result;
+#else
+        auto [pipeline_manager, lock] = get_pipeline_manager();
+        auto compile_result = pipeline_manager.add_ray_tracing_pipeline(info);
+        if (compile_result.is_err()) {
+            debug_utils::Console::add_log(compile_result.message());
+            return {};
+        }
+        auto result = AsyncManagedRayTracingPipeline{};
         result.pipeline = compile_result.value();
         if (!compile_result.value()->is_valid()) {
             debug_utils::Console::add_log(compile_result.message());

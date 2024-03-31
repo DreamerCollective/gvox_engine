@@ -102,8 +102,6 @@ void Renderer::end_frame(daxa::Device &device, float dt) {
 }
 
 auto Renderer::render(GpuContext &gpu_context, VoxelWorldBuffers &voxel_buffers, VoxelParticles &particles, daxa::TaskImageView output_image, daxa::Format output_format) -> daxa::TaskImageView {
-    debug_utils::DebugDisplay::begin_passes();
-
     auto &self = *impl;
 
     self.sky.render(gpu_context);

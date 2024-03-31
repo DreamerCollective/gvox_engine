@@ -105,6 +105,10 @@ struct VoxelWorld {
 
     std::vector<CpuVoxelChunk> voxel_chunks;
 
+    daxa::BlasId proc_blas = {};
+
+    TemporalBuffer blas_scratch_buffer;
+
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);
     void record_startup(GpuContext &gpu_context);

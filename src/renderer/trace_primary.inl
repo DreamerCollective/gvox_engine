@@ -37,6 +37,28 @@ struct R32D32BlitPush {
     DAXA_TH_BLOB(R32D32Blit, uses)
 };
 
+struct Aabb {
+    daxa_f32vec3 minimum;
+    daxa_f32vec3 maximum;
+};
+DAXA_DECL_BUFFER_PTR(Aabb)
+
+DAXA_DECL_TASK_HEAD_BEGIN(TestRt, 7)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
+DAXA_TH_BUFFER(RAY_TRACING_SHADER_READ, as_buffer)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(Aabb), aabbs)
+DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, g_buffer_image_id)
+DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, velocity_image_id)
+DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, vs_normal_image_id)
+DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_READ_WRITE, REGULAR_2D, depth_image_id)
+DAXA_DECL_TASK_HEAD_END
+#if defined(DAXA_RAY_TRACING) || defined(__cplusplus)
+struct TestRtPush {
+    daxa_TlasId tlas;
+    DAXA_TH_BLOB(TestRt, uses)
+};
+#endif
+
 #if defined(__cplusplus)
 
 struct GbufferRenderer {
@@ -133,6 +155,60 @@ struct GbufferRenderer {
             },
         });
 
+        struct TestRtTaskInfo {
+            daxa::TlasId tlas_id;
+            uint32_t *raygen_shader_binding_table_offset;
+        };
+
+        gpu_context.add(RayTracingTask<TestRt::Task, TestRtPush, TestRtTaskInfo>{
+            .compile_info = daxa::RayTracingPipelineCompileInfo{
+                .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
+                .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
+                .any_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
+                .closest_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
+                .miss_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
+                // Groups are in order of their shader indices.
+                // NOTE: The order of the groups is important! raygen, miss, hit, callable
+                .shader_groups_infos = {
+                    daxa::RayTracingShaderGroupInfo{
+                        .type = daxa::ShaderGroup::GENERAL,
+                        .general_shader_index = 0,
+                    },
+                    daxa::RayTracingShaderGroupInfo{
+                        .type = daxa::ShaderGroup::GENERAL,
+                        .general_shader_index = 4,
+                    },
+                    daxa::RayTracingShaderGroupInfo{
+                        .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
+                        .closest_hit_shader_index = 3,
+                        .any_hit_shader_index = 2,
+                        .intersection_shader_index = 1,
+                    },
+                },
+                .push_constant_size = sizeof(TestRtPush),
+                .name = "basic ray tracing pipeline",
+            },
+            .views = std::array{
+                daxa::TaskViewVariant{std::pair{TestRt::AT.gpu_input, gpu_context.task_input_buffer}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.as_buffer, voxel_buffers.blas_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.aabbs, voxel_buffers.aabb_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.velocity_image_id, velocity_image}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.depth_image_id, temp_depth_image}},
+            },
+            .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TestRtPush &push, TestRtTaskInfo const &info) {
+                auto const image_info = ti.device.info_image(ti.get(TestRt::AT.g_buffer_image_id).ids[0]).value();
+                ti.recorder.set_pipeline(pipeline);
+                push.tlas = info.tlas_id;
+                set_push_constant(ti, push);
+                ti.recorder.trace_rays({.width = image_info.size.x, .height = image_info.size.y, .depth = 1});
+            },
+            .info = TestRtTaskInfo{
+                .tlas_id = voxel_buffers.tlas,
+            },
+        });
+
         gpu_context.add(RasterTask<R32D32Blit::Task, R32D32BlitPush, NoTaskInfo>{
             .vert_source = daxa::ShaderFile{"FULL_SCREEN_TRIANGLE_VERTEX_SHADER"},
             .frag_source = daxa::ShaderFile{"R32_D32_BLIT"},
@@ -158,38 +234,6 @@ struct GbufferRenderer {
                 ti.recorder = std::move(renderpass_recorder).end_renderpass();
             },
         });
-
-        // gpu_context.frame_task_graph.add_task({
-        //     .attachments = {
-        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_READ, daxa::ImageViewType::REGULAR_2D, temp_depth_image),
-        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, daxa::ImageViewType::REGULAR_2D, depth_image),
-        //     },
-        //     .task = [=](daxa::TaskInterface const &ti) {
-        //         auto image_a = ti.get(daxa::TaskImageAttachmentIndex{0}).ids[0];
-        //         auto image_b = ti.get(daxa::TaskImageAttachmentIndex{1}).ids[0];
-        //         auto image_a_info = ti.device.info_image(image_a).value();
-        //         auto image_b_info = ti.device.info_image(image_b).value();
-
-        //         ti.recorder.blit_image_to_image({
-        //             .src_image = image_a,
-        //             .src_image_layout = ti.get(daxa::TaskImageAttachmentIndex{0}).layout,
-        //             .dst_image = image_b,
-        //             .dst_image_layout = ti.get(daxa::TaskImageAttachmentIndex{1}).layout,
-        //             .src_offsets = {{{0, 0, 0}, {static_cast<int32_t>(image_a_info.size.x), static_cast<int32_t>(image_a_info.size.y), static_cast<int32_t>(image_a_info.size.z)}}},
-        //             .dst_offsets = {{{0, 0, 0}, {static_cast<int32_t>(image_b_info.size.x), static_cast<int32_t>(image_b_info.size.y), static_cast<int32_t>(image_b_info.size.z)}}},
-        //             .filter = daxa::Filter::NEAREST,
-        //         });
-
-        //         // ti.recorder.copy_image_to_image({
-        //         //     .src_image = image_a,
-        //         //     .src_image_layout = ti.get(daxa::TaskImageAttachmentIndex{0}).layout,
-        //         //     .dst_image = image_b,
-        //         //     .dst_image_layout = ti.get(daxa::TaskImageAttachmentIndex{1}).layout,
-        //         //     .extent = image_a_info.size,
-        //         // });
-        //     },
-        //     .name = "copy depth buffer",
-        // });
 
         debug_utils::DebugDisplay::add_pass({.name = "depth_prepass", .task_image_id = depth_prepass_image, .type = DEBUG_IMAGE_TYPE_DEFAULT});
         debug_utils::DebugDisplay::add_pass({.name = "gbuffer", .task_image_id = gbuffer_depth.gbuffer, .type = DEBUG_IMAGE_TYPE_GBUFFER});

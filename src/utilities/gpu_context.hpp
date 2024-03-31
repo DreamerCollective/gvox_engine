@@ -77,6 +77,7 @@ struct GpuContext {
     void remove_temporal_image(daxa::ImageId id);
 
     std::unordered_map<std::string, std::shared_ptr<AsyncManagedComputePipeline>> compute_pipelines;
+    std::unordered_map<std::string, std::shared_ptr<AsyncManagedRayTracingPipeline>> ray_tracing_pipelines;
     std::unordered_map<std::string, std::shared_ptr<AsyncManagedRasterPipeline>> raster_pipelines;
 
     template <typename TaskHeadT, typename PushT, typename InfoT, typename PipelineT>
@@ -96,6 +97,17 @@ struct GpuContext {
                         .push_constant_size = push_constant_size,
                         .name = std::string{TaskHeadT::name()},
                     })));
+                pipe_iter = emplace_result.first;
+            }
+            return pipe_iter;
+        } else if constexpr (std::is_same_v<PipelineT, AsyncManagedRayTracingPipeline>) {
+            auto pipe_iter = ray_tracing_pipelines.find(shader_id);
+            if (pipe_iter == ray_tracing_pipelines.end()) {
+                // task.extra_defines.push_back({std::string{TaskHeadT::name()} + "Shader", "1"});
+                // task.compile_info.compile_options.defines = task.extra_defines;
+                auto emplace_result = ray_tracing_pipelines.emplace(
+                    shader_id,
+                    std::make_shared<AsyncManagedRayTracingPipeline>(pipeline_manager->add_ray_tracing_pipeline(task.compile_info)));
                 pipe_iter = emplace_result.first;
             }
             return pipe_iter;

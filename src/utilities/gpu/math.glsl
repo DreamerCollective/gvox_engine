@@ -21,10 +21,6 @@ struct CapsulePoints {
     vec3 p0, p1;
     float r;
 };
-struct Aabb {
-    vec3 pmin;
-    vec3 pmax;
-};
 
 #include <utilities/gpu/common.glsl>
 

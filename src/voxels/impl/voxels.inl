@@ -142,6 +142,12 @@ struct VoxelWorldBuffers {
     TemporalBuffer chunk_updates;
     TemporalBuffer chunk_update_heap;
     AllocatorBufferState<VoxelMallocPageAllocator> voxel_malloc;
+
+    TemporalBuffer aabb_buffer;
+    TemporalBuffer blas_buffer;
+
+    daxa::TlasId tlas = {};
+
     // AllocatorBufferState<VoxelLeafChunkAllocator> voxel_leaf_chunk_malloc;
     // AllocatorBufferState<VoxelParentChunkAllocator> voxel_parent_chunk_malloc;
 };

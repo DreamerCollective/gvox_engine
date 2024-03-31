@@ -31,6 +31,26 @@ struct Task : TaskHeadT {
 };
 
 template <typename TaskHeadT, typename PushT, typename InfoT>
+struct Task<TaskHeadT, PushT, InfoT, AsyncManagedRayTracingPipeline> : TaskHeadT {
+    daxa::RayTracingPipelineCompileInfo compile_info{};
+    std::vector<daxa::ShaderDefine> extra_defines{};
+    TaskHeadT::AttachmentViews views{};
+    TaskCallback<TaskHeadT, PushT, InfoT, AsyncManagedRayTracingPipeline> *callback_{};
+    InfoT info{};
+    // Not set by user
+    std::shared_ptr<AsyncManagedRayTracingPipeline> pipeline;
+    daxa::TaskGraph *task_graph_ptr = nullptr;
+    void callback(daxa::TaskInterface const &ti) {
+        auto push = PushT{};
+        // ti.copy_task_head_to(&push.uses);
+        if (!pipeline->is_valid()) {
+            return;
+        }
+        callback_(ti, pipeline->get(), push, info);
+    }
+};
+
+template <typename TaskHeadT, typename PushT, typename InfoT>
 struct Task<TaskHeadT, PushT, InfoT, AsyncManagedRasterPipeline> : TaskHeadT {
     daxa::ShaderSource vert_source;
     daxa::ShaderSource frag_source;
@@ -56,6 +76,9 @@ struct Task<TaskHeadT, PushT, InfoT, AsyncManagedRasterPipeline> : TaskHeadT {
 
 template <typename TaskHeadT, typename PushT, typename InfoT>
 using ComputeTask = Task<TaskHeadT, PushT, InfoT, AsyncManagedComputePipeline>;
+
+template <typename TaskHeadT, typename PushT, typename InfoT>
+using RayTracingTask = Task<TaskHeadT, PushT, InfoT, AsyncManagedRayTracingPipeline>;
 
 template <typename TaskHeadT, typename PushT, typename InfoT>
 using RasterTask = Task<TaskHeadT, PushT, InfoT, AsyncManagedRasterPipeline>;

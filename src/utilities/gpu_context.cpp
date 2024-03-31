@@ -15,6 +15,7 @@ GpuContext::GpuContext() {
         .flags = daxa::DeviceFlags2{
             // .buffer_device_address_capture_replay_bit = false,
             // .conservative_rasterization = true,
+            .ray_tracing = true,
             .shader_float16 = true,
             // .robust_buffer_access = true,
             // .robust_image_access = true,

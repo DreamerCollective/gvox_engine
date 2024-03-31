@@ -73,6 +73,9 @@ VoxelApp::~VoxelApp() {
     gpu_context.device.collect_garbage();
 
     voxel_model_loader.destroy();
+
+    // TODO: Remove this
+    gpu_context.device.destroy_tlas(voxel_world.buffers.tlas);
 }
 
 void VoxelApp::run() {
@@ -309,6 +312,8 @@ void VoxelApp::record_tasks() {
 
     voxel_world.record_startup(gpu_context);
     particles.record_startup(gpu_context);
+
+    debug_utils::DebugDisplay::begin_passes();
 
     gpu_context.frame_task_graph.use_persistent_buffer(voxel_model_loader.task_gvox_model_buffer);
 

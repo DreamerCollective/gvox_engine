@@ -59,18 +59,26 @@ struct TreeSDFNrm {
     vec3 leaves_nrm;
 };
 
-void sd_spruce_branch(in out TreeSDF val, in vec3 p, in vec3 origin, in vec3 dir, in float scl) {
+void sd_spruce_branch(in out TreeSDFNrm val, in vec3 p, in vec3 origin, in vec3 dir, in float scl) {
     vec3 bp0 = origin;
     vec3 bp1 = bp0 + dir;
     val.wood = min(val.wood, sd_capsule(p, bp0, bp1, 0.10));
-    val.leaves = min(val.leaves, sd_sphere(p - bp1, 0.15 * scl));
+    float leaves_d0 = sd_sphere(p - bp1, 0.15 * scl);
+    if (leaves_d0 < val.leaves) {
+        val.leaves = leaves_d0;
+        val.leaves_nrm = normalize(p - bp1);
+    }
     bp0 = bp1, bp1 = bp0 + dir * 0.5 + vec3(0, 0, 0.2);
     val.wood = min(val.wood, sd_capsule(p, bp0, bp1, 0.07));
-    val.leaves = min(val.leaves, sd_sphere(p - bp1, 0.15 * scl));
+    float leaves_d1 = sd_sphere(p - bp1, 0.15 * scl);
+    if (leaves_d1 < val.leaves) {
+        val.leaves = leaves_d1;
+        val.leaves_nrm = normalize(p - bp1);
+    }
 }
 
-TreeSDF sd_spruce_tree(in vec3 p, in vec3 seed) {
-    TreeSDF val = TreeSDF(1e5, 1e5);
+TreeSDFNrm sd_spruce_tree(in vec3 p, in vec3 seed) {
+    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, vec3(0, 0, 1), vec3(0, 0, 1));
     val.wood = min(val.wood, sd_capsule(p, vec3(0, 0, 0), vec3(0, 0, 4.5), 0.15));
     val.leaves = min(val.leaves, sd_capsule(p, vec3(0, 0, 4.5), vec3(0, 0, 5.0), 0.15));
     for (uint i = 0; i < 5; ++i) {
@@ -164,7 +172,7 @@ void try_spawn_tree(in out Voxel voxel, vec3 forest_biome_color, vec3 nrm) {
         // }
 
         // Distance to tree
-        TreeSDF tree = sd_spruce_tree((voxel_pos - hitPoint) / scale, qid);
+        TreeSDFNrm tree = sd_spruce_tree((voxel_pos - hitPoint) / scale, qid);
 
         vec3 h_cell = vec3(0);  // hash33(qid);
         vec3 h_voxel = vec3(0); // hash33(voxel_pos);
@@ -701,18 +709,24 @@ void brush_maple_tree(in out Voxel voxel) {
 }
 
 void brush_spruce_tree(in out Voxel voxel) {
-    TreeSDF tree = sd_spruce_tree(voxel_pos - brush_input.pos, brush_input.pos);
+    vec3 tree_pos = brush_input.pos + brush_input.pos_offset;
+
+    TreeSDFNrm tree = sd_spruce_tree(voxel_pos - tree_pos, tree_pos);
+    float leaf_rand = good_rand(voxel_pos);
 
     if (tree.wood < 0) {
         voxel.material_type = 1;
         voxel.color = vec3(.68, .4, .15) * 0.16;
         voxel.roughness = 0.99;
         voxel.normal = vec3(0, 0, 1);
-    } else if (tree.leaves < 0) {
+    } else if (tree.leaves + leaf_rand * 0.05 < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.28, .8, .15) * 0.5;
+        voxel.color = vec3(.28, .4, .15) * 0.5;
         voxel.roughness = 0.95;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = tree.leaves_nrm;
+        if (dot(voxel.normal, vec3(0, 0, 1)) - leaf_rand * 1.0 > 0.0) {
+            voxel.color = vec3(0.7, 0.7, 0.71);
+        }
     }
 }
 
@@ -730,9 +744,9 @@ void brushgen_b(in out Voxel voxel) {
 
     // brush_light_ball(voxel);
     // brush_lantern(voxel);
-    brush_fire(voxel);
+    // brush_fire(voxel);
     // brush_torch(voxel);
 
-    // brush_maple_tree(voxel);
+    brush_maple_tree(voxel);
     // brush_spruce_tree(voxel);
 }

@@ -1,6 +1,20 @@
 #include "voxel_world.inl"
 #include <fmt/format.h>
 
+#ifndef defer
+struct defer_dummy {};
+template <class F>
+struct deferrer {
+    F f;
+    ~deferrer() { f(); }
+};
+template <class F>
+deferrer<F> operator*(defer_dummy, F f) { return {f}; }
+#define DEFER_(LINE) zz_defer##LINE
+#define DEFER(LINE) DEFER_(LINE)
+#define defer auto DEFER(__LINE__) = defer_dummy{} *[&]()
+#endif // defer
+
 static uint32_t calc_chunk_index(glm::uvec3 chunk_i, glm::ivec3 offset) {
     // Modulate the chunk index to be wrapped around relative to the chunk offset provided.
     auto temp_chunk_i = (glm::ivec3(chunk_i) + (offset >> glm::ivec3(6 + LOG2_VOXEL_SIZE))) % glm::ivec3(CHUNKS_PER_AXIS);
@@ -198,6 +212,174 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         },
         .task_graph_ptr = &gpu_context.startup_task_graph,
     });
+
+    // test
+
+    daxa_u64 blas_scratch_buffer_size = 1024 * 1024 * 10;
+    daxa_u64 blas_scratch_buffer_offset = 0;
+    daxa_u32 acceleration_structure_scratch_offset_alignment = 0;
+    daxa_u64 blas_buffer_size = 1024 * 1024 * 10;
+    daxa_u64 blas_buffer_offset = 0;
+    const daxa_u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256; // NOTE: Requested by the spec
+
+    acceleration_structure_scratch_offset_alignment = gpu_context.device.properties().acceleration_structure_properties.value().min_acceleration_structure_scratch_offset_alignment;
+
+    blas_scratch_buffer = gpu_context.find_or_add_temporal_buffer({
+        .size = blas_scratch_buffer_size,
+        .name = "blas_scratch_buffer",
+    });
+    buffers.blas_buffer = gpu_context.find_or_add_temporal_buffer({
+        .size = blas_buffer_size,
+        .name = "blas_buffer",
+    });
+
+    /// Alignments:
+    auto get_aligned = [&](daxa_u64 operand, daxa_u64 granularity) -> daxa_u64 {
+        return ((operand + (granularity - 1)) & ~(granularity - 1));
+    };
+
+    /// aabb data:
+    auto min_max = std::array{
+        std::array{0.0f, 0.0f, 0.0f},
+        std::array{1.0f, 1.0f, 1.0f},
+        std::array{0.5f, 0.5f, 0.5f},
+        std::array{1.5f, 1.5f, 1.5f},
+    };
+    buffers.aabb_buffer = gpu_context.find_or_add_temporal_buffer({
+        .size = sizeof(decltype(min_max)),
+        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, // TODO
+        .name = "aabb_buffer",
+    });
+    *gpu_context.device.get_host_address_as<decltype(min_max)>(buffers.aabb_buffer.resource_id).value() = min_max;
+    /// Procedural Geometry Info:
+    auto proc_geometries = std::array{
+        daxa::BlasAabbGeometryInfo{
+            .data = gpu_context.device.get_device_address(buffers.aabb_buffer.resource_id).value(),
+            .stride = sizeof(daxa_f32mat3x2),
+            .count = 1,
+            .flags = daxa::GeometryFlagBits::NO_DUPLICATE_ANY_HIT_INVOCATION, // Is also default
+        },
+        daxa::BlasAabbGeometryInfo{
+            .data = gpu_context.device.get_device_address(buffers.aabb_buffer.resource_id).value() + sizeof(daxa_f32mat3x2),
+            .stride = sizeof(daxa_f32mat3x2),
+            .count = 1,
+            .flags = daxa::GeometryFlagBits::NO_DUPLICATE_ANY_HIT_INVOCATION, // Is also default
+        }};
+    /// Create Procedural Blas:
+    auto proc_blas_build_info = daxa::BlasBuildInfo{
+        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE, // Is also default
+        .dst_blas = {},                                                       // Ignored in get_acceleration_structure_build_sizes.       // Is also default
+        .geometries = proc_geometries,
+        .scratch_data = {}, // Ignored in get_acceleration_structure_build_sizes.   // Is also default
+    };
+    daxa::AccelerationStructureBuildSizesInfo proc_build_size_info = gpu_context.device.get_blas_build_sizes(proc_blas_build_info);
+
+    auto scratch_alignment_size = get_aligned(proc_build_size_info.build_scratch_size, acceleration_structure_scratch_offset_alignment);
+    if ((blas_scratch_buffer_offset + scratch_alignment_size) > blas_scratch_buffer_size) {
+        std::cout << "blas_scratch_buffer_offset > blas_scratch_buffer_size" << std::endl;
+        abort();
+    }
+    proc_blas_build_info.scratch_data = gpu_context.device.get_device_address(blas_scratch_buffer.resource_id).value() + blas_scratch_buffer_offset;
+    blas_scratch_buffer_offset += scratch_alignment_size;
+
+    auto build_aligment_size = get_aligned(proc_build_size_info.acceleration_structure_size, ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT);
+
+    if ((blas_buffer_offset + build_aligment_size) > blas_buffer_size) {
+        // TODO: Try to resize buffer
+        std::cout << "blas_buffer_offset > blas_buffer_size" << std::endl;
+        abort();
+    }
+
+    this->proc_blas = gpu_context.device.create_blas_from_buffer({
+        .blas_info = {
+            .size = proc_build_size_info.acceleration_structure_size,
+            .name = "test procedural blas",
+        },
+        .buffer_id = buffers.blas_buffer.resource_id,
+        .offset = blas_buffer_offset,
+    });
+    proc_blas_build_info.dst_blas = proc_blas;
+    blas_buffer_offset += build_aligment_size;
+
+    /// create blas instances for tlas:
+    auto blas_instances_buffer = gpu_context.device.create_buffer({
+        .size = sizeof(daxa_BlasInstanceData) * 2,
+        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+        .name = "blas instances array buffer",
+    });
+    defer { gpu_context.device.destroy_buffer(blas_instances_buffer); };
+
+    auto blas_instance_array = std::array{daxa_BlasInstanceData{
+        .transform = {
+            {1, 0, 0, +0.0f},
+            {0, 1, 0, +0.0f},
+            {0, 0, 1, -0.5f},
+        },
+        .instance_custom_index = 0, // Is also default
+        .mask = 0xFF,
+        .instance_shader_binding_table_record_offset = 0,
+        .flags = {}, // Is also default
+        .blas_device_address = gpu_context.device.get_device_address(proc_blas).value(),
+    }};
+
+    std::memcpy(gpu_context.device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer).value(),
+                blas_instance_array.data(),
+                blas_instance_array.size() * sizeof(daxa_BlasInstanceData));
+
+    auto blas_instances = std::array{
+        daxa::TlasInstanceInfo{
+            .data = {}, // Ignored in get_acceleration_structure_build_sizes.   // Is also default
+            .count = 2,
+            .is_data_array_of_pointers = false,      // Buffer contains flat array of instances, not an array of pointers to instances.
+            .flags = daxa::GeometryFlagBits::OPAQUE, // Is also default
+        },
+    };
+    auto tlas_build_info = daxa::TlasBuildInfo{
+        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
+        .dst_tlas = {}, // Ignored in get_acceleration_structure_build_sizes.
+        .instances = blas_instances,
+        .scratch_data = {}, // Ignored in get_acceleration_structure_build_sizes.
+    };
+    daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes = gpu_context.device.get_tlas_build_sizes(tlas_build_info);
+    /// Create Tlas:
+    this->buffers.tlas = gpu_context.device.create_tlas({
+        .size = tlas_build_sizes.acceleration_structure_size,
+        .name = "tlas",
+    });
+    /// Create Build Scratch buffer
+    auto tlas_scratch_buffer = gpu_context.device.create_buffer({
+        .size = tlas_build_sizes.build_scratch_size,
+        .name = "tlas build scratch buffer",
+    });
+    defer { gpu_context.device.destroy_buffer(tlas_scratch_buffer); };
+    /// Update build info:
+    tlas_build_info.dst_tlas = buffers.tlas;
+    tlas_build_info.scratch_data = gpu_context.device.get_device_address(tlas_scratch_buffer).value();
+    blas_instances[0].data = gpu_context.device.get_device_address(blas_instances_buffer).value();
+
+    /// Record build commands:
+    auto exec_cmds = [&]() {
+        auto recorder = gpu_context.device.create_command_recorder({});
+        recorder.build_acceleration_structures({
+            .blas_build_infos = std::array{proc_blas_build_info},
+        });
+        recorder.pipeline_barrier({
+            .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_WRITE,
+            .dst_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_READ_WRITE,
+        });
+        recorder.build_acceleration_structures({
+            .tlas_build_infos = std::array{tlas_build_info},
+        });
+        recorder.pipeline_barrier({
+            .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_WRITE,
+            .dst_access = daxa::AccessConsts::READ_WRITE,
+        });
+        return recorder.complete_current_commands();
+    }();
+    gpu_context.device.submit_commands({.command_lists = std::array{exec_cmds}});
+
+    gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_buffer.task_resource);
+    gpu_context.frame_task_graph.use_persistent_buffer(buffers.aabb_buffer.task_resource);
 }
 
 void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, VoxelWorldOutput const &gpu_output) {
