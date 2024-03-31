@@ -95,6 +95,9 @@ void main() {
 
 // Ray-AABB intersection
 float hitAabb(const Aabb aabb, const Ray r) {
+    if (all(greaterThanEqual(r.origin, aabb.minimum)) && all(lessThanEqual(r.origin, aabb.maximum))) {
+        return 0.0;
+    }
     vec3 invDir = 1.0 / r.direction;
     vec3 tbot = invDir * (aabb.minimum - r.origin);
     vec3 ttop = invDir * (aabb.maximum - r.origin);
@@ -108,7 +111,8 @@ float hitAabb(const Aabb aabb, const Ray r) {
 #include <utilities/gpu/math.glsl>
 
 bool getVoxel(ivec3 c) {
-    return length(vec3(c - 8)) < 8.0;
+    // return length(vec3(c - 8)) < 8.0;
+    return (c & 3) == ivec3(0);
 }
 
 void main() {
@@ -129,35 +133,33 @@ void main() {
     Aabb aabb = deref(advance(p.uses.aabbs, i));
     tHit = hitAabb(aabb, ray);
 
-    ray.origin += ray.direction * tHit;
+    const float BIAS = uintBitsToFloat(0x3f800040); // uintBitsToFloat(0x3f800040) == 1.00000762939453125
+    ray.origin += ray.direction * tHit * BIAS;
 
-    if (tHit > 0) {
+    if (tHit >= 0) {
         // DDA
-        ivec3 mapPos = ivec3(floor(ray.origin * VOXEL_SCL));
-        vec3 deltaDist = abs(vec3(length(ray.direction)) / ray.direction);
-        ivec3 rayStep = ivec3(sign(ray.direction));
-        vec3 sideDist = (sign(ray.direction) * (vec3(mapPos) - ray.origin * VOXEL_SCL) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
-        bvec3 mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
-        bvec3 prev_mask;
         ivec3 bmin = ivec3(floor(aabb.minimum * VOXEL_SCL));
-        ivec3 bmax = ivec3(floor(aabb.maximum * VOXEL_SCL));
+        ivec3 bmax = ivec3(floor(aabb.maximum * VOXEL_SCL)) - bmin - 1;
+        ivec3 mapPos = ivec3(floor(ray.origin * VOXEL_SCL)) - bmin;
+        vec3 deltaDist = abs(vec3(length(ray.direction)) / ray.direction);
+        vec3 sideDist = (sign(ray.direction) * (vec3(mapPos + bmin) - ray.origin * VOXEL_SCL) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
+        ivec3 rayStep = ivec3(sign(ray.direction));
+        bvec3 mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
 
         for (int i = 0; i < int(3 * VOXEL_SCL); i++) {
-            if (getVoxel(mapPos - bmin) == true) {
+            if (getVoxel(mapPos) == true) {
                 if (i != 0) {
-                    aabb.minimum += vec3(mapPos - bmin) * VOXEL_SIZE;
+                    aabb.minimum += vec3(mapPos) * VOXEL_SIZE;
                     aabb.maximum = aabb.minimum + VOXEL_SIZE;
                     tHit += hitAabb(aabb, ray);
                 }
                 reportIntersectionEXT(tHit, 0);
                 break;
             }
-            prev_mask = mask;
             mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
             sideDist += vec3(mask) * deltaDist;
             mapPos += ivec3(vec3(mask)) * rayStep;
-            if (mapPos.x < bmin.x || mapPos.y < bmin.y || mapPos.z < bmin.z ||
-                mapPos.x >= bmax.x || mapPos.y >= bmax.y || mapPos.z >= bmax.z) {
+            if (any(lessThan(mapPos, ivec3(0))) || any(greaterThan(mapPos, bmax))) {
                 break;
             }
         }

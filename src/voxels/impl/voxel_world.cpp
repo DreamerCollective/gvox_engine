@@ -257,13 +257,13 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .data = gpu_context.device.get_device_address(buffers.aabb_buffer.resource_id).value(),
             .stride = sizeof(daxa_f32mat3x2),
             .count = 1,
-            .flags = daxa::GeometryFlagBits::NO_DUPLICATE_ANY_HIT_INVOCATION, // Is also default
+            .flags = daxa::GeometryFlagBits::OPAQUE, // Is also default
         },
         daxa::BlasAabbGeometryInfo{
             .data = gpu_context.device.get_device_address(buffers.aabb_buffer.resource_id).value() + sizeof(daxa_f32mat3x2),
             .stride = sizeof(daxa_f32mat3x2),
             .count = 1,
-            .flags = daxa::GeometryFlagBits::NO_DUPLICATE_ANY_HIT_INVOCATION, // Is also default
+            .flags = daxa::GeometryFlagBits::OPAQUE, // Is also default
         }};
     /// Create Procedural Blas:
     auto proc_blas_build_info = daxa::BlasBuildInfo{
