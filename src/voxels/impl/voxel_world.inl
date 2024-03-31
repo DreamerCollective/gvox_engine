@@ -100,6 +100,7 @@ struct BlasChunk {
     daxa::BufferId blas_buffer;
     daxa::TaskBlas task_blas;
     daxa::BufferId aabb_buffer;
+    daxa::TaskBuffer task_aabb_buffer;
     daxa::BlasBuildInfo blas_build_info;
     daxa_f32vec3 position;
     std::vector<Aabb> aabbs;
@@ -114,15 +115,22 @@ struct CpuVoxelChunk {
 struct VoxelWorld {
     VoxelWorldBuffers buffers;
     bool gpu_malloc_initialized = false;
+    bool rt_initialized = false;
 
     std::vector<CpuVoxelChunk> voxel_chunks;
     std::vector<BlasChunk> blas_chunks;
+
+    uint64_t blas_allocator_element_count{};
+    std::vector<uint64_t> blas_allocator_free_list{};
+    uint64_t blas_allocator_free_count{};
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);
     void record_startup(GpuContext &gpu_context);
     void begin_frame(daxa::Device &device, GpuInput const &gpu_input, VoxelWorldOutput const &gpu_output);
     void record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles);
+
+    void insert_blas(BlasChunk &&blas_chunk);
 };
 
 #endif

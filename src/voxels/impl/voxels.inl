@@ -149,7 +149,7 @@ struct VoxelWorldBuffers {
     TemporalBuffer chunk_update_heap;
     AllocatorBufferState<VoxelMallocPageAllocator> voxel_malloc;
 
-    TemporalBuffer aabb_buffer;
+    TemporalBuffer blas_aabb_pointers;
 
     daxa::TlasId tlas;
     daxa::TaskTlas task_tlas;

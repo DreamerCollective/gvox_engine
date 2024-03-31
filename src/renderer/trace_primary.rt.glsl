@@ -131,8 +131,9 @@ void main() {
     ray.direction = (world_to_blas * vec4(ray.direction, 0)).xyz;
     float tHit = -1;
     // InstanceCustomIndexKHR
-    uint i = gl_PrimitiveID + gl_GeometryIndexEXT + gl_InstanceCustomIndexEXT;
-    Aabb aabb = deref(advance(p.uses.aabbs, i));
+    daxa_BufferPtr(Aabb) aabbs = deref(advance(p.uses.aabbs, gl_InstanceCustomIndexEXT));
+    uint i = gl_PrimitiveID + gl_GeometryIndexEXT;
+    Aabb aabb = deref(advance(aabbs, i));
     tHit = hitAabb(aabb, ray);
 
     // Move ray to AABB surface (biased just barely inside)
@@ -191,9 +192,10 @@ void main() {
         gl_ObjectToWorldEXT[2][0], gl_ObjectToWorldEXT[2][1], gl_ObjectToWorldEXT[2][2], 0,
         gl_ObjectToWorldEXT[3][0], gl_ObjectToWorldEXT[3][1], gl_ObjectToWorldEXT[3][2], 1.0);
 
-    uint prim_index = gl_PrimitiveID + gl_GeometryIndexEXT + gl_InstanceCustomIndexEXT;
+    daxa_BufferPtr(Aabb) aabbs = deref(advance(p.uses.aabbs, gl_InstanceCustomIndexEXT));
+    uint i = gl_PrimitiveID + gl_GeometryIndexEXT;
+    Aabb aabb = deref(advance(aabbs, i));
 
-    Aabb aabb = deref(advance(p.uses.aabbs, prim_index));
     vec3 center = (aabb.minimum + aabb.maximum) * 0.5;
     center = (blas_to_world * vec4(center, 1)).xyz;
 

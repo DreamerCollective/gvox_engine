@@ -37,10 +37,12 @@ struct R32D32BlitPush {
     DAXA_TH_BLOB(R32D32Blit, uses)
 };
 
+DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(Aabb))
+
 DAXA_DECL_TASK_HEAD_BEGIN(TestRt)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_TLAS_PTR(RAY_TRACING_SHADER_READ, tlas)
-DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(Aabb), aabbs)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(Aabb)), aabbs)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, g_buffer_image_id)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, velocity_image_id)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, vs_normal_image_id)
@@ -185,7 +187,7 @@ struct GbufferRenderer {
             .views = std::array{
                 daxa::TaskViewVariant{std::pair{TestRt::AT.gpu_input, gpu_context.task_input_buffer}},
                 daxa::TaskViewVariant{std::pair{TestRt::AT.tlas, voxel_buffers.task_tlas}},
-                daxa::TaskViewVariant{std::pair{TestRt::AT.aabbs, voxel_buffers.aabb_buffer.task_resource}},
+                daxa::TaskViewVariant{std::pair{TestRt::AT.aabbs, voxel_buffers.blas_aabb_pointers.task_resource}},
                 daxa::TaskViewVariant{std::pair{TestRt::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
                 daxa::TaskViewVariant{std::pair{TestRt::AT.velocity_image_id, velocity_image}},
                 daxa::TaskViewVariant{std::pair{TestRt::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
