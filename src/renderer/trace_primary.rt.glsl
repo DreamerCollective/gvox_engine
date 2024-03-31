@@ -110,8 +110,16 @@ float hitAabb(const Aabb aabb, const Ray r) {
 
 #include <utilities/gpu/math.glsl>
 
+daxa_BufferPtr(BlasGeom) blas_geoms;
+
 bool getVoxel(ivec3 c) {
-    return length(vec3(c - 8)) < 8.0;
+    c = c & (BLAS_BRICK_SIZE - 1);
+    uint bit_index = c.x + c.y * BLAS_BRICK_SIZE + c.z * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE;
+    uint u32_index = bit_index / 32;
+    uint in_u32_index = bit_index & 0x1f;
+    uint val = deref(advance(blas_geoms, gl_PrimitiveID)).bitmask[u32_index];
+    return (val & (1 << in_u32_index)) != 0;
+    // return length(vec3(c - 4)) < 4.0;
     // return (c & 3) == ivec3(0);
 }
 
@@ -131,9 +139,8 @@ void main() {
     ray.direction = (world_to_blas * vec4(ray.direction, 0)).xyz;
     float tHit = -1;
     // InstanceCustomIndexKHR
-    daxa_BufferPtr(Aabb) aabbs = deref(advance(p.uses.aabbs, gl_InstanceCustomIndexEXT));
-    uint i = gl_PrimitiveID + gl_GeometryIndexEXT;
-    Aabb aabb = deref(advance(aabbs, i));
+    blas_geoms = deref(advance(p.uses.geometry_pointers, gl_InstanceCustomIndexEXT));
+    Aabb aabb = deref(advance(blas_geoms, gl_PrimitiveID)).aabb;
     tHit = hitAabb(aabb, ray);
 
     // Move ray to AABB surface (biased just barely inside)
@@ -143,7 +150,6 @@ void main() {
     if (tHit >= 0) {
         // DDA
         ivec3 bmin = ivec3(floor(aabb.minimum * VOXEL_SCL));
-        ivec3 bmax = ivec3(floor(aabb.maximum * VOXEL_SCL)) - bmin - 1;
         ivec3 mapPos = ivec3(floor(ray.origin * VOXEL_SCL)) - bmin;
         vec3 deltaDist = abs(vec3(length(ray.direction)) / ray.direction);
         vec3 sideDist = (sign(ray.direction) * (vec3(mapPos + bmin) - ray.origin * VOXEL_SCL) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
@@ -163,7 +169,7 @@ void main() {
             mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
             sideDist += vec3(mask) * deltaDist;
             mapPos += ivec3(vec3(mask)) * rayStep;
-            if (any(lessThan(mapPos, ivec3(0))) || any(greaterThan(mapPos, bmax))) {
+            if (any(lessThan(mapPos, ivec3(0))) || any(greaterThanEqual(mapPos, ivec3(BLAS_BRICK_SIZE)))) {
                 break;
             }
         }
@@ -192,9 +198,8 @@ void main() {
         gl_ObjectToWorldEXT[2][0], gl_ObjectToWorldEXT[2][1], gl_ObjectToWorldEXT[2][2], 0,
         gl_ObjectToWorldEXT[3][0], gl_ObjectToWorldEXT[3][1], gl_ObjectToWorldEXT[3][2], 1.0);
 
-    daxa_BufferPtr(Aabb) aabbs = deref(advance(p.uses.aabbs, gl_InstanceCustomIndexEXT));
-    uint i = gl_PrimitiveID + gl_GeometryIndexEXT;
-    Aabb aabb = deref(advance(aabbs, i));
+    daxa_BufferPtr(BlasGeom) blas_geoms = deref(advance(p.uses.geometry_pointers, gl_InstanceCustomIndexEXT));
+    Aabb aabb = deref(advance(blas_geoms, gl_PrimitiveID)).aabb;
 
     vec3 center = (aabb.minimum + aabb.maximum) * 0.5;
     center = (blas_to_world * vec4(center, 1)).xyz;

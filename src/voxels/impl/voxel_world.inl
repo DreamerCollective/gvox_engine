@@ -99,11 +99,11 @@ struct BlasChunk {
     daxa::BlasId blas;
     daxa::BufferId blas_buffer;
     daxa::TaskBlas task_blas;
-    daxa::BufferId aabb_buffer;
-    daxa::TaskBuffer task_aabb_buffer;
+    daxa::BufferId geom_buffer;
+    daxa::TaskBuffer task_geom_buffer;
     daxa::BlasBuildInfo blas_build_info;
     daxa_f32vec3 position;
-    std::vector<Aabb> aabbs;
+    std::vector<BlasGeom> blas_geoms;
     // TODO: storing this is not necessary
     std::array<daxa::BlasAabbGeometryInfo, 1> geometry;
 };

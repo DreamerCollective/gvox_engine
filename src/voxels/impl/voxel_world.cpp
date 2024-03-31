@@ -237,51 +237,66 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         for (uint32_t chunk_i = 0; chunk_i < 4; ++chunk_i) {
             BlasChunk blas_chunk;
             blas_chunk.position = {0.0f, chunk_i * 8.0f, 0.0f};
-            blas_chunk.aabbs.resize(4 + rand() % 4);
-            for (auto &aabb : blas_chunk.aabbs) {
-                aabb.minimum = {
-                    float(rand() % 8),
-                    float(rand() % 8),
-                    float(rand() % 8),
+            blas_chunk.blas_geoms.resize(4 + rand() % 4);
+            for (auto &blas_geom : blas_chunk.blas_geoms) {
+                blas_geom.aabb.minimum = {
+                    float(rand() % 8) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
+                    float(rand() % 8) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
+                    float(rand() % 8) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
                 };
-                aabb.maximum = aabb.minimum;
-                aabb.maximum.x += 1.0f;
-                aabb.maximum.y += 1.0f;
-                aabb.maximum.z += 1.0f;
+                blas_geom.aabb.maximum = blas_geom.aabb.minimum;
+                blas_geom.aabb.maximum.x += float(VOXEL_SIZE) * BLAS_BRICK_SIZE;
+                blas_geom.aabb.maximum.y += float(VOXEL_SIZE) * BLAS_BRICK_SIZE;
+                blas_geom.aabb.maximum.z += float(VOXEL_SIZE) * BLAS_BRICK_SIZE;
+
+                for (int32_t zi = 0; zi < BLAS_BRICK_SIZE; ++zi) {
+                    for (int32_t yi = 0; yi < BLAS_BRICK_SIZE; ++yi) {
+                        for (int32_t xi = 0; xi < BLAS_BRICK_SIZE; ++xi) {
+                            const uint32_t bit_index = xi + yi * BLAS_BRICK_SIZE + zi * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE;
+                            const uint32_t u32_index = bit_index / 32;
+                            const uint32_t in_u32_index = bit_index & 0x1f;
+                            blas_geom.bitmask[u32_index] &= ~(1 << in_u32_index);
+                            // set
+                            if ((xi + yi + zi) % 4 == 0) {
+                                blas_geom.bitmask[u32_index] |= 1 << in_u32_index;
+                            }
+                        }
+                    }
+                }
             }
             insert_blas(std::move(blas_chunk));
         }
 
-        buffers.blas_aabb_pointers = gpu_context.find_or_add_temporal_buffer({
+        buffers.blas_geom_pointers = gpu_context.find_or_add_temporal_buffer({
             .size = sizeof(daxa::DeviceAddress) * MAX_BLAS,
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, // TODO
-            .name = "blas_aabb_pointers",
+            .name = "blas_geom_pointers",
         });
 
-        auto aabb_pointers_host_ptr = gpu_context.device.get_host_address_as<daxa::DeviceAddress>(buffers.blas_aabb_pointers.resource_id).value();
+        auto geom_pointers_host_ptr = gpu_context.device.get_host_address_as<daxa::DeviceAddress>(buffers.blas_geom_pointers.resource_id).value();
 
         for (uint64_t blas_i = 0; blas_i < blas_allocator_element_count; ++blas_i) {
             auto &blas_chunk = blas_chunks[blas_i];
-            if (blas_chunk.aabbs.empty()) {
+            if (blas_chunk.blas_geoms.empty()) {
                 continue;
             }
             auto get_aligned = [&](daxa_u64 operand, daxa_u64 granularity) -> daxa_u64 {
                 return ((operand + (granularity - 1)) & ~(granularity - 1));
             };
-            blas_chunk.aabb_buffer = gpu_context.device.create_buffer({
-                .size = sizeof(Aabb) * blas_chunk.aabbs.size(),
+            blas_chunk.geom_buffer = gpu_context.device.create_buffer({
+                .size = sizeof(BlasGeom) * blas_chunk.blas_geoms.size(),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, // TODO
-                .name = "aabb_buffer",
+                .name = "geom_buffer",
             });
-            auto aabb_host_ptr = gpu_context.device.get_host_address_as<Aabb>(blas_chunk.aabb_buffer).value();
-            auto aabb_dev_ptr = gpu_context.device.get_device_address(blas_chunk.aabb_buffer).value();
-            aabb_pointers_host_ptr[blas_i] = aabb_dev_ptr;
-            std::copy(blas_chunk.aabbs.begin(), blas_chunk.aabbs.end(), aabb_host_ptr);
+            auto geom_host_ptr = gpu_context.device.get_host_address_as<BlasGeom>(blas_chunk.geom_buffer).value();
+            auto geom_dev_ptr = gpu_context.device.get_device_address(blas_chunk.geom_buffer).value();
+            geom_pointers_host_ptr[blas_i] = geom_dev_ptr;
+            std::copy(blas_chunk.blas_geoms.begin(), blas_chunk.blas_geoms.end(), geom_host_ptr);
             blas_chunk.geometry = std::array{
                 daxa::BlasAabbGeometryInfo{
-                    .data = aabb_dev_ptr,
-                    .stride = sizeof(Aabb),
-                    .count = static_cast<uint32_t>(blas_chunk.aabbs.size()),
+                    .data = geom_dev_ptr,
+                    .stride = sizeof(BlasGeom),
+                    .count = static_cast<uint32_t>(blas_chunk.blas_geoms.size()),
                     .flags = daxa::GeometryFlagBits::OPAQUE,
                 },
             };
@@ -333,7 +348,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
                     {0, 0, 1, blas_chunk.position.z},
                 },
                 .instance_custom_index = uint32_t(blas_i),
-                .mask = blas_chunk.aabbs.empty() ? 0x00u : 0xffu,
+                .mask = blas_chunk.blas_geoms.empty() ? 0x00u : 0xffu,
                 .instance_shader_binding_table_record_offset = 0,
                 .flags = {},
                 .blas_device_address = gpu_context.device.get_device_address(blas_chunk.blas).value(),
@@ -374,7 +389,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         auto blas_task_attachments = std::vector<daxa::TaskAttachmentInfo>{};
         blas_task_attachments.reserve(MAX_BLAS + 1);
         for (auto &blas_chunk : blas_chunks) {
-            if (!blas_chunk.aabbs.empty()) {
+            if (!blas_chunk.blas_geoms.empty()) {
                 temp_task_graph.use_persistent_blas(blas_chunk.task_blas);
                 blas_task_attachments.push_back(daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, blas_chunk.task_blas));
             }
@@ -384,7 +399,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .task = [&](daxa::TaskInterface const &ti) {
                 for (auto &blas_chunk : blas_chunks) {
                     // blas_chunks could have resized. This means the
-                    if (!blas_chunk.aabbs.empty()) {
+                    if (!blas_chunk.blas_geoms.empty()) {
                         blas_chunk.blas_build_info.geometries = blas_chunk.geometry;
                         ti.recorder.build_acceleration_structures({
                             .blas_build_infos = std::array{blas_chunk.blas_build_info},
@@ -397,7 +412,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         temp_task_graph.use_persistent_tlas(buffers.task_tlas);
         blas_task_attachments.clear();
         for (auto &blas_chunk : blas_chunks) {
-            if (!blas_chunk.aabbs.empty()) {
+            if (!blas_chunk.blas_geoms.empty()) {
                 blas_task_attachments.push_back(daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_READ, blas_chunk.task_blas));
             }
         }
@@ -417,7 +432,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     }
 
     gpu_context.frame_task_graph.use_persistent_tlas(buffers.task_tlas);
-    gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_aabb_pointers.task_resource);
+    gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_geom_pointers.task_resource);
 }
 
 void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, VoxelWorldOutput const &gpu_output) {
