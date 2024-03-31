@@ -37,12 +37,6 @@ struct R32D32BlitPush {
     DAXA_TH_BLOB(R32D32Blit, uses)
 };
 
-struct Aabb {
-    daxa_f32vec3 minimum;
-    daxa_f32vec3 maximum;
-};
-DAXA_DECL_BUFFER_PTR(Aabb)
-
 DAXA_DECL_TASK_HEAD_BEGIN(TestRt)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_TLAS_PTR(RAY_TRACING_SHADER_READ, tlas)

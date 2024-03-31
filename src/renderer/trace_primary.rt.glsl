@@ -130,6 +130,7 @@ void main() {
     ray.origin = (world_to_blas * vec4(ray.origin, 1)).xyz;
     ray.direction = (world_to_blas * vec4(ray.direction, 0)).xyz;
     float tHit = -1;
+    // InstanceCustomIndexKHR
     uint i = gl_PrimitiveID + gl_GeometryIndexEXT + gl_InstanceCustomIndexEXT;
     Aabb aabb = deref(advance(p.uses.aabbs, i));
     tHit = hitAabb(aabb, ray);

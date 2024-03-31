@@ -95,6 +95,18 @@ struct CpuPaletteChunk {
     uint32_t *blob_ptr{};
 };
 
+struct BlasChunk {
+    daxa::BlasId blas;
+    daxa::BufferId blas_buffer;
+    daxa::TaskBlas task_blas;
+    daxa::BufferId aabb_buffer;
+    daxa::BlasBuildInfo blas_build_info;
+    daxa_f32vec3 position;
+    std::vector<Aabb> aabbs;
+    // TODO: storing this is not necessary
+    std::array<daxa::BlasAabbGeometryInfo, 1> geometry;
+};
+
 struct CpuVoxelChunk {
     std::array<CpuPaletteChunk, PALETTES_PER_CHUNK> palette_chunks{};
 };
@@ -104,12 +116,7 @@ struct VoxelWorld {
     bool gpu_malloc_initialized = false;
 
     std::vector<CpuVoxelChunk> voxel_chunks;
-
-    daxa::BlasId proc_blas = {};
-    daxa::TaskBlas task_blas;
-    TemporalBuffer blas_buffer;
-
-    TemporalBuffer blas_scratch_buffer;
+    std::vector<BlasChunk> blas_chunks;
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);

@@ -117,3 +117,9 @@ struct IndirectDrawIndexedParams {
     daxa_u32 vertex_offset;
     daxa_u32 first_instance;
 };
+
+struct Aabb {
+    daxa_f32vec3 minimum;
+    daxa_f32vec3 maximum;
+};
+DAXA_DECL_BUFFER_PTR(Aabb)
