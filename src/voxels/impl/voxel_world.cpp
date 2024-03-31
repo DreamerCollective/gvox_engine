@@ -228,7 +228,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         .size = blas_scratch_buffer_size,
         .name = "blas_scratch_buffer",
     });
-    buffers.blas_buffer = gpu_context.find_or_add_temporal_buffer({
+    blas_buffer = gpu_context.find_or_add_temporal_buffer({
         .size = blas_buffer_size,
         .name = "blas_buffer",
     });
@@ -295,7 +295,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .size = proc_build_size_info.acceleration_structure_size,
             .name = "test procedural blas",
         },
-        .buffer_id = buffers.blas_buffer.resource_id,
+        .buffer_id = blas_buffer.resource_id,
         .offset = blas_buffer_offset,
     });
     proc_blas_build_info.dst_blas = proc_blas;
@@ -342,7 +342,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     };
     daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes = gpu_context.device.get_tlas_build_sizes(tlas_build_info);
     /// Create Tlas:
-    this->buffers.tlas = gpu_context.device.create_tlas({
+    buffers.tlas = gpu_context.device.create_tlas({
         .size = tlas_build_sizes.acceleration_structure_size,
         .name = "tlas",
     });
@@ -357,28 +357,47 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     tlas_build_info.scratch_data = gpu_context.device.get_device_address(tlas_scratch_buffer).value();
     blas_instances[0].data = gpu_context.device.get_device_address(blas_instances_buffer).value();
 
-    /// Record build commands:
-    auto exec_cmds = [&]() {
-        auto recorder = gpu_context.device.create_command_recorder({});
-        recorder.build_acceleration_structures({
-            .blas_build_infos = std::array{proc_blas_build_info},
-        });
-        recorder.pipeline_barrier({
-            .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_WRITE,
-            .dst_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_READ_WRITE,
-        });
-        recorder.build_acceleration_structures({
-            .tlas_build_infos = std::array{tlas_build_info},
-        });
-        recorder.pipeline_barrier({
-            .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_WRITE,
-            .dst_access = daxa::AccessConsts::READ_WRITE,
-        });
-        return recorder.complete_current_commands();
-    }();
-    gpu_context.device.submit_commands({.command_lists = std::array{exec_cmds}});
+    task_blas = daxa::TaskBlas({.initial_blas = {.blas = std::array{proc_blas}}});
+    buffers.task_tlas = daxa::TaskTlas({.initial_tlas = {.tlas = std::array{buffers.tlas}}});
 
-    gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_buffer.task_resource);
+    /// Record build commands:
+    daxa::TaskGraph temp_task_graph = daxa::TaskGraph({
+        .device = gpu_context.device,
+        .name = "temp_task_graph",
+    });
+
+    temp_task_graph.use_persistent_blas(task_blas);
+    temp_task_graph.use_persistent_tlas(buffers.task_tlas);
+
+    temp_task_graph.add_task({
+        .attachments = {
+            daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, task_blas),
+        },
+        .task = [&](daxa::TaskInterface const &ti) {
+            ti.recorder.build_acceleration_structures({
+                .blas_build_infos = std::array{proc_blas_build_info},
+            });
+        },
+        .name = "blas build",
+    });
+    temp_task_graph.add_task({
+        .attachments = {
+            daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_READ, task_blas),
+            daxa::inl_attachment(daxa::TaskTlasAccess::BUILD_WRITE, buffers.task_tlas),
+        },
+        .task = [&](daxa::TaskInterface const &ti) {
+            ti.recorder.build_acceleration_structures({
+                .tlas_build_infos = std::array{tlas_build_info},
+            });
+        },
+        .name = "tlas build",
+    });
+
+    temp_task_graph.submit({});
+    temp_task_graph.complete({});
+    temp_task_graph.execute({});
+
+    gpu_context.frame_task_graph.use_persistent_tlas(buffers.task_tlas);
     gpu_context.frame_task_graph.use_persistent_buffer(buffers.aabb_buffer.task_resource);
 }
 

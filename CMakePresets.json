@@ -48,7 +48,7 @@
             "generator": "Visual Studio 17 2022",
             "displayName": "Visual Studio x86_64 Windows (MSVC ABI)",
             "inherits": [ "defaults-windows" ],
-            "toolchainFile": "${sourceDir}/cmake/toolchains/cl-x86_64-windows-msvc.cmake"
+            "toolchainFile": ""
         },
         {
             "name": "gcc-x86_64-linux-gnu",

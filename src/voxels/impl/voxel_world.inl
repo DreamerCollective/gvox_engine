@@ -106,6 +106,8 @@ struct VoxelWorld {
     std::vector<CpuVoxelChunk> voxel_chunks;
 
     daxa::BlasId proc_blas = {};
+    daxa::TaskBlas task_blas;
+    TemporalBuffer blas_buffer;
 
     TemporalBuffer blas_scratch_buffer;
 

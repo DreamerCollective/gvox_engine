@@ -29,6 +29,12 @@ struct VoxelParentChunk {
 };
 DAXA_DECL_BUFFER_PTR(VoxelParentChunk)
 
+#define VOXEL_BRICK_SIZE 8
+
+struct VoxelBrickBitmask {
+    daxa_u32 data[VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE / 32];
+};
+
 struct VoxelLeafChunk {
     daxa_u32 flags;
     daxa_u32 update_index;
@@ -144,9 +150,9 @@ struct VoxelWorldBuffers {
     AllocatorBufferState<VoxelMallocPageAllocator> voxel_malloc;
 
     TemporalBuffer aabb_buffer;
-    TemporalBuffer blas_buffer;
 
-    daxa::TlasId tlas = {};
+    daxa::TlasId tlas;
+    daxa::TaskTlas task_tlas;
 
     // AllocatorBufferState<VoxelLeafChunkAllocator> voxel_leaf_chunk_malloc;
     // AllocatorBufferState<VoxelParentChunkAllocator> voxel_parent_chunk_malloc;

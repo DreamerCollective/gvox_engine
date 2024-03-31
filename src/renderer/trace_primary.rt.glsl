@@ -111,8 +111,8 @@ float hitAabb(const Aabb aabb, const Ray r) {
 #include <utilities/gpu/math.glsl>
 
 bool getVoxel(ivec3 c) {
-    // return length(vec3(c - 8)) < 8.0;
-    return (c & 3) == ivec3(0);
+    return length(vec3(c - 8)) < 8.0;
+    // return (c & 3) == ivec3(0);
 }
 
 void main() {
@@ -120,19 +120,21 @@ void main() {
     ray.origin = gl_ObjectRayOriginEXT;
     ray.direction = gl_ObjectRayDirectionEXT;
 
-    mat4 inv_model = mat4(
+    mat4 world_to_blas = mat4(
+        // Note that the ordering is transposed
         gl_ObjectToWorld3x4EXT[0][0], gl_ObjectToWorld3x4EXT[0][1], gl_ObjectToWorld3x4EXT[0][2], gl_ObjectToWorld3x4EXT[0][3],
         gl_ObjectToWorld3x4EXT[0][1], gl_ObjectToWorld3x4EXT[1][1], gl_ObjectToWorld3x4EXT[1][2], gl_ObjectToWorld3x4EXT[1][3],
         gl_ObjectToWorld3x4EXT[2][0], gl_ObjectToWorld3x4EXT[2][1], gl_ObjectToWorld3x4EXT[2][2], gl_ObjectToWorld3x4EXT[2][3],
         0, 0, 0, 1.0);
 
-    ray.origin = (inv_model * vec4(ray.origin, 1)).xyz;
-    ray.direction = (inv_model * vec4(ray.direction, 0)).xyz;
+    ray.origin = (world_to_blas * vec4(ray.origin, 1)).xyz;
+    ray.direction = (world_to_blas * vec4(ray.direction, 0)).xyz;
     float tHit = -1;
     uint i = gl_PrimitiveID + gl_GeometryIndexEXT + gl_InstanceCustomIndexEXT;
     Aabb aabb = deref(advance(p.uses.aabbs, i));
     tHit = hitAabb(aabb, ray);
 
+    // Move ray to AABB surface (biased just barely inside)
     const float BIAS = uintBitsToFloat(0x3f800040); // uintBitsToFloat(0x3f800040) == 1.00000762939453125
     ray.origin += ray.direction * tHit * BIAS;
 
@@ -172,8 +174,6 @@ layout(location = 0) rayPayloadInEXT hitPayload prd;
 
 // hardcoded dissolve
 void main() {
-    // if (((gl_LaunchIDEXT.x + gl_LaunchIDEXT.y + deref(p.uses.gpu_input).frame_index) % 2) == 0)
-    //     ignoreIntersectionEXT;
 }
 
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
@@ -184,7 +184,7 @@ void main() {
     const float BIAS = uintBitsToFloat(0x3f800040); // uintBitsToFloat(0x3f800040) == 1.00000762939453125
     vec3 world_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT * BIAS;
 
-    mat4 model = mat4(
+    mat4 blas_to_world = mat4(
         gl_ObjectToWorldEXT[0][0], gl_ObjectToWorldEXT[0][1], gl_ObjectToWorldEXT[0][2], 0,
         gl_ObjectToWorldEXT[0][1], gl_ObjectToWorldEXT[1][1], gl_ObjectToWorldEXT[1][2], 0,
         gl_ObjectToWorldEXT[2][0], gl_ObjectToWorldEXT[2][1], gl_ObjectToWorldEXT[2][2], 0,
@@ -194,7 +194,7 @@ void main() {
 
     Aabb aabb = deref(advance(p.uses.aabbs, prim_index));
     vec3 center = (aabb.minimum + aabb.maximum) * 0.5;
-    center = (model * vec4(center, 1)).xyz;
+    center = (blas_to_world * vec4(center, 1)).xyz;
 
     vec3 world_nrm = normalize(floor((world_pos - center) * VOXEL_SCL) * VOXEL_SIZE);
 
