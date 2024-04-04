@@ -113,20 +113,6 @@ void VoxelWorld::init_gpu_malloc(GpuContext &gpu_context) {
     }
 }
 
-constexpr uint64_t MAX_BLAS = 512;
-
-void VoxelWorld::insert_blas(BlasChunk &&blas_chunk) {
-    uint64_t index;
-    if (blas_allocator_free_count > 0) {
-        // get from free-list
-        index = blas_allocator_free_list[--blas_allocator_free_count];
-    } else {
-        // allocate new one
-        index = blas_allocator_element_count++;
-    }
-    blas_chunks[index] = std::move(blas_chunk);
-}
-
 void VoxelWorld::record_startup(GpuContext &gpu_context) {
     buffers.chunk_updates = gpu_context.find_or_add_temporal_buffer({
         .size = sizeof(ChunkUpdate) * MAX_CHUNK_UPDATES_PER_FRAME * (FRAMES_IN_FLIGHT + 1),
@@ -232,10 +218,9 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
 
         const daxa_u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256; // NOTE: Requested by the spec
         auto acceleration_structure_scratch_offset_alignment = gpu_context.device.properties().acceleration_structure_properties.value().min_acceleration_structure_scratch_offset_alignment;
-        blas_chunks.resize(MAX_BLAS);
 
         for (uint32_t chunk_i = 0; chunk_i < 4; ++chunk_i) {
-            BlasChunk blas_chunk;
+            auto &blas_chunk = voxel_chunks[chunk_i].blas_chunk;
             blas_chunk.position = {0.0f, chunk_i * 8.0f, 0.0f};
             blas_chunk.blas_geoms.resize(4 + rand() % 4);
             for (auto &blas_geom : blas_chunk.blas_geoms) {
@@ -264,19 +249,18 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
                     }
                 }
             }
-            insert_blas(std::move(blas_chunk));
         }
 
         buffers.blas_geom_pointers = gpu_context.find_or_add_temporal_buffer({
-            .size = sizeof(daxa::DeviceAddress) * MAX_BLAS,
+            .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, // TODO
             .name = "blas_geom_pointers",
         });
 
         auto geom_pointers_host_ptr = gpu_context.device.get_host_address_as<daxa::DeviceAddress>(buffers.blas_geom_pointers.resource_id).value();
 
-        for (uint64_t blas_i = 0; blas_i < blas_allocator_element_count; ++blas_i) {
-            auto &blas_chunk = blas_chunks[blas_i];
+        for (uint64_t blas_i = 0; blas_i < voxel_chunks.size(); ++blas_i) {
+            auto &blas_chunk = voxel_chunks[blas_i].blas_chunk;
             if (blas_chunk.blas_geoms.empty()) {
                 continue;
             }
@@ -333,14 +317,14 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
 
         /// create blas instances for tlas:
         auto blas_instances_buffer = gpu_context.device.create_buffer({
-            .size = sizeof(daxa_BlasInstanceData) * MAX_BLAS,
+            .size = sizeof(daxa_BlasInstanceData) * voxel_chunks.size(),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             .name = "blas instances array buffer",
         });
         defer { gpu_context.device.destroy_buffer(blas_instances_buffer); };
         auto *blas_instances = gpu_context.device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer).value();
-        for (size_t blas_i = 0; blas_i < MAX_BLAS; ++blas_i) {
-            auto &blas_chunk = blas_chunks[blas_i];
+        for (size_t blas_i = 0; blas_i < voxel_chunks.size(); ++blas_i) {
+            auto &blas_chunk = voxel_chunks[blas_i].blas_chunk;
             blas_instances[blas_i] = daxa_BlasInstanceData{
                 .transform = {
                     {1, 0, 0, blas_chunk.position.x},
@@ -357,7 +341,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         auto blas_instance_info = std::array{
             daxa::TlasInstanceInfo{
                 .data = {}, // Ignored in get_acceleration_structure_build_sizes.
-                .count = static_cast<uint32_t>(MAX_BLAS),
+                .count = static_cast<uint32_t>(voxel_chunks.size()),
                 .is_data_array_of_pointers = false, // Buffer contains flat array of instances, not an array of pointers to instances.
                 .flags = daxa::GeometryFlagBits::OPAQUE,
             },
@@ -387,8 +371,9 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .name = "temp_task_graph",
         });
         auto blas_task_attachments = std::vector<daxa::TaskAttachmentInfo>{};
-        blas_task_attachments.reserve(MAX_BLAS + 1);
-        for (auto &blas_chunk : blas_chunks) {
+        blas_task_attachments.reserve(voxel_chunks.size() + 1);
+        for (auto &voxel_chunk : voxel_chunks) {
+            auto &blas_chunk = voxel_chunk.blas_chunk;
             if (!blas_chunk.blas_geoms.empty()) {
                 temp_task_graph.use_persistent_blas(blas_chunk.task_blas);
                 blas_task_attachments.push_back(daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, blas_chunk.task_blas));
@@ -397,8 +382,8 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         temp_task_graph.add_task({
             .attachments = blas_task_attachments,
             .task = [&](daxa::TaskInterface const &ti) {
-                for (auto &blas_chunk : blas_chunks) {
-                    // blas_chunks could have resized. This means the
+                for (auto &voxel_chunk : voxel_chunks) {
+                    auto &blas_chunk = voxel_chunk.blas_chunk;
                     if (!blas_chunk.blas_geoms.empty()) {
                         blas_chunk.blas_build_info.geometries = blas_chunk.geometry;
                         ti.recorder.build_acceleration_structures({
@@ -411,7 +396,8 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         });
         temp_task_graph.use_persistent_tlas(buffers.task_tlas);
         blas_task_attachments.clear();
-        for (auto &blas_chunk : blas_chunks) {
+        for (auto &voxel_chunk : voxel_chunks) {
+            auto &blas_chunk = voxel_chunk.blas_chunk;
             if (!blas_chunk.blas_geoms.empty()) {
                 blas_task_attachments.push_back(daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_READ, blas_chunk.task_blas));
             }

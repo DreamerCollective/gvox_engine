@@ -272,7 +272,17 @@ void try_spawn_grass(in out Voxel voxel, vec3 nrm) {
     float r2 = good_rand(voxel_pos.xy);
     float upwards = dot(nrm, vec3(0, 0, 1));
     if (upwards > 0.35 && r2 < 0.75) {
-        voxel.color = pow(vec3(85, 166, 78) / 255.0 * 0.5, vec3(2.2));
+        FractalNoiseConfig noise_conf = FractalNoiseConfig(
+            /* .amplitude   = */ 1.0,
+            /* .persistance = */ 0.5,
+            /* .scale       = */ 0.1,
+            /* .lacunarity  = */ 2,
+            /* .octaves     = */ 3);
+        vec4 flower_noise_val = fractal_noise(g_value_noise_tex, g_sampler_llr, vec3(voxel_pos.xy, 0), noise_conf);
+        float v = flower_noise_val.x * (1.0 / 0.875);
+
+        // voxel.color = pow(vec3(85, 166, 78) / 255.0 * 0.5, vec3(2.2));
+        voxel.color = hsv2rgb(vec3(0.11 + v * 0.15 + fract(r2 * 426.7) * 0.05, 0.7, 0.2));
         voxel.material_type = 1;
         voxel.roughness = 1.0;
         voxel.normal = nrm;
@@ -280,18 +290,9 @@ void try_spawn_grass(in out Voxel voxel, vec3 nrm) {
         // spawn strand!!
 
         if (r2 < 0.2) {
-            if (r2 < 0.99 * 0.2) {
+            if (true || r2 < 0.99 * 0.2) {
                 spawn_grass(voxel);
             } else {
-                FractalNoiseConfig noise_conf = FractalNoiseConfig(
-                    /* .amplitude   = */ 1.0,
-                    /* .persistance = */ 0.5,
-                    /* .scale       = */ 0.1,
-                    /* .lacunarity  = */ 2,
-                    /* .octaves     = */ 3);
-                vec4 flower_noise_val = fractal_noise(g_value_noise_tex, g_sampler_llr, vec3(voxel_pos.xy, 0), noise_conf);
-                float v = flower_noise_val.x * (1.0 / 0.875);
-
                 uint flower_type = 0;
                 if (v < 0.4) {
                     flower_type = FLOWER_TYPE_DANDELION;
@@ -695,7 +696,8 @@ void brush_maple_tree(in out Voxel voxel) {
         voxel.normal = vec3(0, 0, 1);
     } else if (tree.leaves * 5.0 + leaf_rand * 15.0 < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.28, .8, .15) * 0.5;
+        // voxel.color = vec3(.28, .8, .15) * 0.5;
+        voxel.color = hsv2rgb(vec3(0.0 + good_rand(tree_pos) * 0.1, 0.9, 0.9));
         voxel.roughness = 0.95;
         voxel.normal = tree.leaves_nrm;
         if (tree.leaves - leaf_rand > -VOXEL_SIZE) {
@@ -730,6 +732,92 @@ void brush_spruce_tree(in out Voxel voxel) {
     }
 }
 
+void sd_spruce_tree_big_branch(in out TreeSDFNrm val, in vec3 p, in vec3 origin, in vec3 dir, in float scl) {
+    float upwards_curl_factor = 0.1;
+    vec3 bp0 = origin;
+    for (uint segment_i = 0; segment_i < 4; ++segment_i) {
+        vec3 bp1 = bp0 + dir * scl + vec3(0, 0, upwards_curl_factor);
+        upwards_curl_factor += 0.1;
+        val.wood = sd_union(val.wood, sd_capsule(p, bp0, bp1, 0.10));
+        for (uint i = 0; i < 3; ++i) {
+            vec3 needle_p = mix(bp0, bp1, i * 0.3);
+            {
+                float leaves_dist = sd_capsule(p, needle_p, needle_p + (dir.yxz * vec3(-1, 1, 1) + dir * 0.6) * (4 - segment_i) * 0.4, 0.1);
+                val.leaves = sd_union(val.leaves, leaves_dist);
+            }
+            {
+                float leaves_dist = sd_capsule(p, needle_p, needle_p + (-dir.yxz * vec3(-1, 1, 1) + dir * 0.6) * (4 - segment_i) * 0.4, 0.1);
+                val.leaves = sd_union(val.leaves, leaves_dist);
+            }
+        }
+        bp0 = bp1;
+    }
+}
+
+TreeSDFNrm sd_spruce_tree_big(in vec3 p, in vec3 seed) {
+    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, vec3(0, 0, 1), vec3(0, 0, 1));
+
+    float sd_trunk_base = sd_round_cone(
+        p,
+        vec3(0, 0, 0),
+        vec3(0, 0, 5),
+        0.5, 0.4);
+    float sd_trunk_mid = sd_round_cone(
+        p,
+        vec3(0, 0, 5),
+        vec3(0, 0, 8),
+        0.4, 0.41);
+    float sd_trunk_top = sd_round_cone(
+        p,
+        vec3(0, 0, 5),
+        vec3(0, 0, 16),
+        0.41, 0.2);
+
+    val.wood = sd_union(sd_trunk_base, sd_union(sd_trunk_mid, sd_trunk_top));
+
+    for (uint i = 0; i < 9; ++i) {
+        float scl = 1.5 - i * 0.15;
+        uint branch_n = 11 - i / 2;
+        for (uint branch_i = 0; branch_i < branch_n; ++branch_i) {
+            float angle = (1.0 / branch_n * branch_i) * 2.0 * M_PI + good_rand(seed + i + 1.0 * branch_i) * 15.5 + branch_i * 10;
+            float branch_base = 4.0 + i * 1.4 + branch_i * 0.1;
+            vec3 dir = normalize(vec3(cos(angle), sin(angle), +0.0));
+            sd_spruce_tree_big_branch(val, p, vec3(0, 0, branch_base), dir, scl);
+        }
+    }
+    return val;
+}
+
+void brush_spruce_tree_big(in out Voxel voxel) {
+    vec3 tree_pos = brush_input.pos + brush_input.pos_offset;
+
+    float tree_size = good_rand(tree_pos);
+    float space_scl = 1.5 - tree_size * 0.5;
+    TreeSDFNrm tree = sd_spruce_tree_big((voxel_pos - tree_pos) * space_scl, tree_pos);
+    tree.wood /= space_scl;
+    tree.leaves /= space_scl;
+
+    float leaf_rand = good_rand(voxel_pos);
+
+    uint prev_mat_type = voxel.material_type;
+
+    if (tree.wood < 0) {
+        voxel.material_type = 1;
+        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.roughness = 0.99;
+        voxel.normal = vec3(0, 0, 1);
+    } else if (tree.leaves * 5.0 < 0) {
+        voxel.material_type = 1;
+        // voxel.color = vec3(.28, .8, .15) * 0.5;
+        voxel.color = hsv2rgb(vec3(0.35 + good_rand(tree_pos) * 0.03, 0.4, 0.2));
+        voxel.roughness = 0.95;
+        voxel.normal = tree.leaves_nrm;
+        if (dot(voxel.normal, vec3(0, 0, 1)) > 0.6) {
+            voxel.color = vec3(0.9);
+        }
+    }
+}
+
 void brushgen_b(in out Voxel voxel) {
     PackedVoxel voxel_data = sample_voxel_chunk(voxel_malloc_page_allocator, voxel_chunk_ptr, inchunk_voxel_i);
     Voxel prev_voxel = unpack_voxel(voxel_data);
@@ -749,4 +837,5 @@ void brushgen_b(in out Voxel voxel) {
 
     brush_maple_tree(voxel);
     // brush_spruce_tree(voxel);
+    // brush_spruce_tree_big(voxel);
 }

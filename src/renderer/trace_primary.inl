@@ -151,12 +151,7 @@ struct GbufferRenderer {
             },
         });
 
-        struct TestRtTaskInfo {
-            daxa::TlasId tlas_id;
-            uint32_t *raygen_shader_binding_table_offset;
-        };
-
-        gpu_context.add(RayTracingTask<TestRt::Task, TestRtPush, TestRtTaskInfo>{
+        gpu_context.add(RayTracingTask<TestRt::Task, TestRtPush, NoTaskInfo>{
             .compile_info = daxa::RayTracingPipelineCompileInfo{
                 .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
                 .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
@@ -193,15 +188,12 @@ struct GbufferRenderer {
                 daxa::TaskViewVariant{std::pair{TestRt::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
                 daxa::TaskViewVariant{std::pair{TestRt::AT.depth_image_id, temp_depth_image}},
             },
-            .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TestRtPush &push, TestRtTaskInfo const &info) {
+            .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TestRtPush &push, NoTaskInfo const &) {
                 auto const image_info = ti.device.info_image(ti.get(TestRt::AT.g_buffer_image_id).ids[0]).value();
                 ti.recorder.set_pipeline(pipeline);
-                push.tlas = info.tlas_id;
+                push.tlas = ti.get(TestRt::AT.tlas).ids[0];
                 set_push_constant(ti, push);
                 ti.recorder.trace_rays({.width = image_info.size.x, .height = image_info.size.y, .depth = 1});
-            },
-            .info = TestRtTaskInfo{
-                .tlas_id = voxel_buffers.tlas,
             },
         });
 
