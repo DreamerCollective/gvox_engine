@@ -29,6 +29,8 @@ struct VoxelParticlePerframeComputePush {
 
 #if defined(__cplusplus)
 
+#include <application/settings.hpp>
+
 struct VoxelParticles {
     TemporalBuffer global_state;
     TemporalBuffer cube_index_buffer;
@@ -148,17 +150,22 @@ struct VoxelParticles {
             .name = "raster_shadow_depth_image",
         });
 
-        sim_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
-        grass.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
-        flowers.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
-        tree_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
-        fire_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+        AppSettings::add<settings::Checkbox>({"Graphics", "Draw Particles", {.value = true}, {.task_graph_depends = true}});
+        auto draw_particles = AppSettings::get<settings::Checkbox>("Graphics", "Draw Particles").value;
 
-        sim_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
-        grass.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
-        flowers.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
-        tree_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
-        fire_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+        if (draw_particles) {
+            sim_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+            grass.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+            flowers.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+            tree_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+            fire_particles.render_cubes(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource, cube_index_buffer.task_resource);
+
+            sim_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+            grass.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+            flowers.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+            tree_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+            fire_particles.render_splats(gpu_context, gbuffer_depth, velocity_image, raster_shadow_depth_image, global_state.task_resource);
+        }
 
         return raster_shadow_depth_image;
     }

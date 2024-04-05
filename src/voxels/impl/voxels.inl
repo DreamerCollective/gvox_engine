@@ -34,6 +34,10 @@ DAXA_DECL_BUFFER_PTR(VoxelParentChunk)
 struct VoxelBrickBitmask {
     daxa_u32 data[VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE / 32];
 };
+struct VoxelBrickAttribs {
+    PackedVoxel packed_voxels[VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE];
+};
+DAXA_DECL_BUFFER_PTR(VoxelBrickAttribs)
 
 struct VoxelLeafChunk {
     daxa_u32 flags;
@@ -150,6 +154,8 @@ struct VoxelWorldBuffers {
     AllocatorBufferState<VoxelMallocPageAllocator> voxel_malloc;
 
     TemporalBuffer blas_geom_pointers;
+    TemporalBuffer blas_attr_pointers;
+    TemporalBuffer blas_transforms;
 
     daxa::TlasId tlas;
     daxa::TaskTlas task_tlas;

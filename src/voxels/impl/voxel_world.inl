@@ -91,6 +91,7 @@ struct ChunkAllocComputePush {
 #if defined(__cplusplus)
 
 struct CpuPaletteChunk {
+    uint32_t has_air : 1 {};
     uint32_t variant_n{};
     uint32_t *blob_ptr{};
 };
@@ -99,12 +100,11 @@ struct BlasChunk {
     daxa::BlasId blas;
     daxa::BufferId blas_buffer;
     daxa::BufferId geom_buffer;
-    daxa::TaskBuffer task_geom_buffer;
+    daxa::BufferId attr_buffer;
     daxa::BlasBuildInfo blas_build_info;
     daxa_f32vec3 position;
     std::vector<BlasGeom> blas_geoms;
-    // TODO: storing this is not necessary
-    std::array<daxa::BlasAabbGeometryInfo, 1> geometry;
+    std::vector<VoxelBrickAttribs> attrib_bricks;
 };
 
 struct CpuVoxelChunk {
@@ -112,7 +112,7 @@ struct CpuVoxelChunk {
     BlasChunk blas_chunk;
 
     // TODO: Remove this
-    bool all_air = true;
+    bool needs_blas_rebuild = true;
 };
 
 struct VoxelWorld {
@@ -122,6 +122,8 @@ struct VoxelWorld {
 
     std::vector<CpuVoxelChunk> voxel_chunks;
     daxa::TaskBlas task_chunk_blases;
+    TemporalBuffer staging_blas_geom_pointers;
+    TemporalBuffer staging_blas_attr_pointers;
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);
