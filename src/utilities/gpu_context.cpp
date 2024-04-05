@@ -20,6 +20,7 @@ GpuContext::GpuContext() {
             // .robust_buffer_access = true,
             // .robust_image_access = true,
         },
+        .max_allowed_buffers = 150'000,
         .name = "device",
     });
     pipeline_manager = std::make_shared<AsyncPipelineManager>(daxa::PipelineManagerInfo{

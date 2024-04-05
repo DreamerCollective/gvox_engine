@@ -157,8 +157,6 @@ void VoxelApp::on_update() {
         calc_vram_usage();
     }
 
-    voxel_world.begin_frame(gpu_context.device, gpu_input, gpu_output.voxel_world);
-
     player_input.frame_dim = gpu_input.frame_dim;
     player_input.halton_jitter = gpu_input.halton_jitter;
     player_input.delta_time = gpu_input.delta_time;
@@ -167,6 +165,8 @@ void VoxelApp::on_update() {
     player_input.mouse = gpu_input.mouse;
     std::copy(std::begin(gpu_input.actions), std::end(gpu_input.actions), std::begin(player_input.actions));
     player_perframe(player_input, gpu_input.player, voxel_world);
+
+    voxel_world.begin_frame(gpu_context.device, gpu_input, gpu_output.voxel_world);
 
     gpu_input.fif_index = gpu_input.frame_index % (FRAMES_IN_FLIGHT + 1);
     gpu_context.frame_task_graph.execute({});

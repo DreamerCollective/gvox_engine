@@ -98,7 +98,6 @@ struct CpuPaletteChunk {
 struct BlasChunk {
     daxa::BlasId blas;
     daxa::BufferId blas_buffer;
-    daxa::TaskBlas task_blas;
     daxa::BufferId geom_buffer;
     daxa::TaskBuffer task_geom_buffer;
     daxa::BlasBuildInfo blas_build_info;
@@ -111,6 +110,9 @@ struct BlasChunk {
 struct CpuVoxelChunk {
     std::array<CpuPaletteChunk, PALETTES_PER_CHUNK> palette_chunks{};
     BlasChunk blas_chunk;
+
+    // TODO: Remove this
+    bool all_air = true;
 };
 
 struct VoxelWorld {
@@ -119,6 +121,7 @@ struct VoxelWorld {
     bool rt_initialized = false;
 
     std::vector<CpuVoxelChunk> voxel_chunks;
+    daxa::TaskBlas task_chunk_blases;
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);

@@ -80,6 +80,8 @@ void main() {
         return;
     }
 
+    vs_velocity = (prev_vs_pos.xyz / prev_vs_pos.w) - (vs_pos.xyz / vs_pos.w);
+
     uvec4 output_value = uvec4(0);
     output_value.x = pack_voxel(voxel).data;
     output_value.y = nrm_to_u16(ws_nrm);
@@ -213,7 +215,7 @@ void main() {
     voxel.normal = world_nrm;
     prd.hit_voxel = pack_voxel(voxel);
     prd.pos_ws = world_pos;
-    prd.vel_ws = vec3(0, 0, 0);
+    prd.vel_ws = vec3(deref(p.uses.gpu_input).player.player_unit_offset - deref(p.uses.gpu_input).player.prev_unit_offset);
 }
 
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_MISS
