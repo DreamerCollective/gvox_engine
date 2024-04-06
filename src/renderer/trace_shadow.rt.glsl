@@ -1,8 +1,6 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#define PAYLOAD_LOC 0
-
 #include <daxa/daxa.inl>
 
 #include "trace_secondary.inl"
@@ -26,7 +24,7 @@ void main() {
     output_tex_size.zw = vec2(1.0, 1.0) / output_tex_size.xy;
 
     vec2 uv = get_uv(gl_LaunchIDEXT.xy, output_tex_size);
-    float depth =  texelFetch(daxa_texture2D(push.uses.depth_image_id), ivec2(gl_LaunchIDEXT.xy), 0).r;
+    float depth = texelFetch(daxa_texture2D(push.uses.depth_image_id), ivec2(gl_LaunchIDEXT.xy), 0).r;
     GbufferDataPacked gbuffer_packed = GbufferDataPacked(texelFetch(daxa_utexture2D(push.uses.g_buffer_image_id), ivec2(gl_LaunchIDEXT.xy), 0));
     GbufferData gbuffer = unpack(gbuffer_packed);
     vec3 nrm = gbuffer.normal;
@@ -52,7 +50,7 @@ void main() {
         uint missIndex = 0;
 
         traceRayEXT(
-            daxa_accelerationStructureEXT(push.tlas),
+            accelerationStructureEXT(push.uses.tlas),
             rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
             ray_pos, tMin, ray_dir, tMax, PAYLOAD_LOC);
 

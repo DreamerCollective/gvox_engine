@@ -697,7 +697,7 @@ void brush_maple_tree(in out Voxel voxel) {
     } else if (tree.leaves * 5.0 + leaf_rand * 15.0 < 0) {
         voxel.material_type = 1;
         // voxel.color = vec3(.28, .8, .15) * 0.5;
-        voxel.color = hsv2rgb(vec3(0.0 + good_rand(tree_pos) * 0.1, 0.9, 0.9));
+        voxel.color = hsv2rgb(vec3(0.0 + good_rand(tree_pos) * 0.05, 0.9, 0.9));
         voxel.roughness = 0.95;
         voxel.normal = tree.leaves_nrm;
         if (tree.leaves - leaf_rand > -VOXEL_SIZE) {

@@ -2,6 +2,10 @@
 
 #include <voxels/voxels.glsl>
 #include <utilities/gpu/math.glsl>
+#include <application/input.inl>
+#include <voxels/impl/voxels.inl>
+
+#define PAYLOAD_LOC 0
 
 struct HitAttribute {
     uint data;
@@ -77,7 +81,11 @@ PackedVoxel unpack_ray_payload(
         ivec3 mapPos = ivec3(voxel_index % BLAS_BRICK_SIZE, (voxel_index / BLAS_BRICK_SIZE) % BLAS_BRICK_SIZE, voxel_index / BLAS_BRICK_SIZE / BLAS_BRICK_SIZE);
         aabb.minimum += vec3(mapPos) * VOXEL_SIZE;
         aabb.maximum = aabb.minimum + VOXEL_SIZE;
+#if PER_VOXEL_NORMALS
         hit_pos = ray.origin + ray.direction * hitAabb_midpoint(aabb, ray);
+#else
+        hit_pos = ray.origin + ray.direction * hitAabb(aabb, ray);
+#endif
         // hit_pos = (blas_to_world * vec4(hit_pos, 1)).xyz;
     }
     return deref(advance(brick_attribs, brick_id)).packed_voxels[voxel_index];

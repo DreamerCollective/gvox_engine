@@ -37,7 +37,7 @@ struct R32D32BlitPush {
     DAXA_TH_BLOB(R32D32Blit, uses)
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(TestRt)
+DAXA_DECL_TASK_HEAD_BEGIN(TracePrimaryRt)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)), attribute_pointers)
@@ -49,9 +49,8 @@ DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, vs_normal
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, depth_image_id)
 DAXA_DECL_TASK_HEAD_END
 #if defined(DAXA_RAY_TRACING) || defined(__cplusplus)
-struct TestRtPush {
-    daxa_TlasId tlas;
-    DAXA_TH_BLOB(TestRt, uses)
+struct TracePrimaryRtPush {
+    DAXA_TH_BLOB(TracePrimaryRt, uses)
 };
 #endif
 
@@ -107,7 +106,6 @@ struct GbufferRenderer {
             .name = "temp_depth_image",
         });
 
-        AppSettings::add<settings::Checkbox>({"Graphics", "Use HWRT", {.value = true}, {.task_graph_depends = true}});
         auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
         if (!use_hwrt) {
             auto depth_prepass_image = gpu_context.frame_task_graph.create_transient_image({
@@ -157,47 +155,22 @@ struct GbufferRenderer {
                 },
             });
         } else {
-            gpu_context.add(RayTracingTask<TestRt::Task, TestRtPush, NoTaskInfo>{
-                .compile_info = daxa::RayTracingPipelineCompileInfo{
-                    .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
-                    .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
-                    .closest_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
-                    .miss_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
-                    // Groups are in order of their shader indices.
-                    // NOTE: The order of the groups is important! raygen, miss, hit, callable
-                    .shader_groups_infos = {
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::GENERAL,
-                            .general_shader_index = 0,
-                        },
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::GENERAL,
-                            .general_shader_index = 3,
-                        },
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
-                            .closest_hit_shader_index = 2,
-                            .intersection_shader_index = 1,
-                        },
-                    },
-                    .push_constant_size = sizeof(TestRtPush),
-                    .name = "basic ray tracing pipeline",
-                },
+            gpu_context.add(RayTracingTask<TracePrimaryRt::Task, TracePrimaryRtPush, NoTaskInfo>{
+                .source = daxa::ShaderFile{"trace_primary.rt.glsl"},
                 .views = std::array{
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.gpu_input, gpu_context.task_input_buffer}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.geometry_pointers, voxel_buffers.blas_geom_pointers.task_resource}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.attribute_pointers, voxel_buffers.blas_attr_pointers.task_resource}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.blas_transforms, voxel_buffers.blas_transforms.task_resource}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.tlas, voxel_buffers.task_tlas}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.velocity_image_id, velocity_image}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
-                    daxa::TaskViewVariant{std::pair{TestRt::AT.depth_image_id, temp_depth_image}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.gpu_input, gpu_context.task_input_buffer}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.geometry_pointers, voxel_buffers.blas_geom_pointers.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.attribute_pointers, voxel_buffers.blas_attr_pointers.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.blas_transforms, voxel_buffers.blas_transforms.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.tlas, voxel_buffers.task_tlas}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.velocity_image_id, velocity_image}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.vs_normal_image_id, gbuffer_depth.geometric_normal}},
+                    daxa::TaskViewVariant{std::pair{TracePrimaryRt::AT.depth_image_id, temp_depth_image}},
                 },
-                .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TestRtPush &push, NoTaskInfo const &) {
-                    auto const image_info = ti.device.info_image(ti.get(TestRt::AT.g_buffer_image_id).ids[0]).value();
+                .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TracePrimaryRtPush &push, NoTaskInfo const &) {
+                    auto const image_info = ti.device.info_image(ti.get(TracePrimaryRt::AT.g_buffer_image_id).ids[0]).value();
                     ti.recorder.set_pipeline(pipeline);
-                    push.tlas = ti.get(TestRt::AT.tlas).ids[0];
                     set_push_constant(ti, push);
                     ti.recorder.trace_rays({.width = image_info.size.x, .height = image_info.size.y, .depth = 1});
                 },

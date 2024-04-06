@@ -31,7 +31,6 @@ DAXA_TH_IMAGE_ID(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, shadow_mask)
 DAXA_DECL_TASK_HEAD_END
 #if defined(DAXA_RAY_TRACING) || defined(__cplusplus)
 struct TraceShadowRtPush {
-    daxa_TlasId tlas;
     DAXA_TH_BLOB(TraceShadowRt, uses)
 };
 #endif
@@ -75,30 +74,7 @@ inline auto trace_shadows(GpuContext &gpu_context, GbufferDepth &gbuffer_depth, 
             });
         } else {
             gpu_context.add(RayTracingTask<TraceShadowRt::Task, TraceShadowRtPush, NoTaskInfo>{
-                .compile_info = daxa::RayTracingPipelineCompileInfo{
-                    .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
-                    .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
-                    .closest_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
-                    .miss_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
-                    // Groups are in order of their shader indices.
-                    // NOTE: The order of the groups is important! raygen, miss, hit, callable
-                    .shader_groups_infos = {
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::GENERAL,
-                            .general_shader_index = 0,
-                        },
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::GENERAL,
-                            .general_shader_index = 3,
-                        },
-                        daxa::RayTracingShaderGroupInfo{
-                            .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
-                            .closest_hit_shader_index = 2,
-                            .intersection_shader_index = 1,
-                        },
-                    },
-                    .push_constant_size = sizeof(TraceShadowRtPush),
-                },
+                .source = daxa::ShaderFile{"trace_shadow.rt.glsl"},
                 .views = std::array{
                     daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.gpu_input, gpu_context.task_input_buffer}},
                     daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.geometry_pointers, voxel_buffers.blas_geom_pointers.task_resource}},
@@ -114,7 +90,6 @@ inline auto trace_shadows(GpuContext &gpu_context, GbufferDepth &gbuffer_depth, 
                 .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TraceShadowRtPush &push, NoTaskInfo const &) {
                     auto const image_info = ti.device.info_image(ti.get(TraceShadowRt::AT.g_buffer_image_id).ids[0]).value();
                     ti.recorder.set_pipeline(pipeline);
-                    push.tlas = ti.get(TraceShadowRt::AT.tlas).ids[0];
                     set_push_constant(ti, push);
                     ti.recorder.trace_rays({.width = image_info.size.x, .height = image_info.size.y, .depth = 1});
                 },

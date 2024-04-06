@@ -82,7 +82,7 @@ struct GpuContext {
 
     template <typename TaskHeadT, typename PushT, typename InfoT, typename PipelineT>
     auto find_or_add_pipeline(Task<TaskHeadT, PushT, InfoT, PipelineT> &task, std::string const &shader_id) {
-        auto push_constant_size = static_cast<uint32_t>(::push_constant_size<PushT>() + TaskHeadT::attachment_shader_blob_size());
+        auto push_constant_size = static_cast<uint32_t>(::push_constant_size<PushT>());
         if constexpr (std::is_same_v<PipelineT, AsyncManagedComputePipeline>) {
             auto pipe_iter = compute_pipelines.find(shader_id);
             if (pipe_iter == compute_pipelines.end()) {
@@ -103,11 +103,46 @@ struct GpuContext {
         } else if constexpr (std::is_same_v<PipelineT, AsyncManagedRayTracingPipeline>) {
             auto pipe_iter = ray_tracing_pipelines.find(shader_id);
             if (pipe_iter == ray_tracing_pipelines.end()) {
-                // task.extra_defines.push_back({std::string{TaskHeadT::name()} + "Shader", "1"});
-                // task.compile_info.compile_options.defines = task.extra_defines;
+                task.extra_defines.push_back({std::string{TaskHeadT::name()} + "Shader", "1"});
                 auto emplace_result = ray_tracing_pipelines.emplace(
                     shader_id,
-                    std::make_shared<AsyncManagedRayTracingPipeline>(pipeline_manager->add_ray_tracing_pipeline(task.compile_info)));
+                    std::make_shared<AsyncManagedRayTracingPipeline>(pipeline_manager->add_ray_tracing_pipeline({
+                        .ray_gen_infos = {daxa::ShaderCompileInfo{
+                            .source = task.source,
+                            .compile_options = {.defines = task.extra_defines},
+                        }},
+                        .intersection_infos = {daxa::ShaderCompileInfo{
+                            .source = task.source,
+                            .compile_options = {.defines = task.extra_defines},
+                        }},
+                        .closest_hit_infos = {daxa::ShaderCompileInfo{
+                            .source = task.source,
+                            .compile_options = {.defines = task.extra_defines},
+                        }},
+                        .miss_hit_infos = {daxa::ShaderCompileInfo{
+                            .source = task.source,
+                            .compile_options = {.defines = task.extra_defines},
+                        }},
+                        // Groups are in order of their shader indices.
+                        // NOTE: The order of the groups is important! raygen, miss, hit, callable
+                        .shader_groups_infos = {
+                            daxa::RayTracingShaderGroupInfo{
+                                .type = daxa::ShaderGroup::GENERAL,
+                                .general_shader_index = 0,
+                            },
+                            daxa::RayTracingShaderGroupInfo{
+                                .type = daxa::ShaderGroup::GENERAL,
+                                .general_shader_index = 3,
+                            },
+                            daxa::RayTracingShaderGroupInfo{
+                                .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
+                                .closest_hit_shader_index = 2,
+                                .intersection_shader_index = 1,
+                            },
+                        },
+                        .push_constant_size = push_constant_size,
+                        .name = std::string{TaskHeadT::name()},
+                    })));
                 pipe_iter = emplace_result.first;
             }
             return pipe_iter;

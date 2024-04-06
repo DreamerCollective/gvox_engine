@@ -51,8 +51,21 @@ struct RtrTraceResult {
 
 bool rt_is_shadowed(RayDesc ray) {
     ShadowRayPayload shadow_payload = ShadowRayPayload_new_hit();
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
+    uint rayFlags = gl_RayFlagsNoneEXT;
+    uint cull_mask = 0xFF;
+    uint sbtRecordOffset = 0;
+    uint sbtRecordStride = 0;
+    uint missIndex = 0;
+    traceRayEXT(
+        accelerationStructureEXT(push.uses.tlas),
+        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
+        ray.Origin, ray.TMin, ray.Direction, ray.TMax, PAYLOAD_LOC);
+    shadow_payload.is_shadowed = prd.data1 != miss_ray_payload().data1;
+#else
     VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin, true), ray.Origin);
     shadow_payload.is_shadowed = trace_result.dist < ray.TMax;
+#endif
     return shadow_payload.is_shadowed;
 }
 
@@ -75,8 +88,11 @@ RtrTraceResult do_the_thing(uvec2 px, vec3 normal_ws, float roughness, inout uin
         primary_hit_ = with_cone(primary_hit_, ray_cone);
         primary_hit_ = with_cull_back_faces(primary_hit_, false);
         primary_hit_ = with_path_length(primary_hit_, 1);
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
+        const GbufferPathVertex primary_hit = trace(primary_hit_);
+#else
         const GbufferPathVertex primary_hit = trace(primary_hit_, VOXELS_BUFFER_PTRS);
-
+#endif
         if (primary_hit.is_hit) {
             GbufferData gbuffer = unpack(primary_hit.gbuffer_packed);
             gbuffer.roughness = mix(gbuffer.roughness, 1.0, roughness_bias);

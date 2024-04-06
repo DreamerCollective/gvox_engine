@@ -123,8 +123,6 @@ struct Aabb {
     daxa_f32vec3 maximum;
 };
 
-#define BLAS_BRICK_SIZE 8
-
 struct BlasGeom {
     Aabb aabb;
     daxa_u32 bitmask[BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE / 32];

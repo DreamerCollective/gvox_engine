@@ -1,14 +1,12 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#define PAYLOAD_LOC 0
-
 #include <daxa/daxa.inl>
 
 #include "trace_primary.inl"
 #include "rt.glsl"
 
-DAXA_DECL_PUSH_CONSTANT(TestRtPush, push)
+DAXA_DECL_PUSH_CONSTANT(TracePrimaryRtPush, push)
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
 
@@ -36,7 +34,7 @@ void main() {
     uint missIndex = 0;
 
     traceRayEXT(
-        daxa_accelerationStructureEXT(push.tlas),
+        accelerationStructureEXT(push.uses.tlas),
         rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
         ray_o, tMin, ray_d, tMax, PAYLOAD_LOC);
 

@@ -4,6 +4,8 @@
 #include "gbuffer.glsl"
 #include "ray_cone.glsl"
 
+#include "../../rt.glsl"
+
 struct GbufferRayPayload {
     GbufferDataPacked gbuffer_packed;
     float t;
@@ -91,6 +93,40 @@ GbufferRaytrace with_cull_back_faces(inout GbufferRaytrace self, bool v) {
     return res;
 }
 
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
+GbufferPathVertex trace(GbufferRaytrace self) {
+    uint rayFlags = gl_RayFlagsNoneEXT;
+    uint cull_mask = 0xFF;
+    uint sbtRecordOffset = 0;
+    uint sbtRecordStride = 0;
+    uint missIndex = 0;
+
+    traceRayEXT(
+        accelerationStructureEXT(push.uses.tlas),
+        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
+        self.ray.Origin, self.ray.TMin, self.ray.Direction, self.ray.TMax, PAYLOAD_LOC);
+
+    if (prd.data1 != miss_ray_payload().data1) {
+        vec3 world_pos = vec3(0);
+        PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(self.ray.Origin, self.ray.Direction), world_pos);
+        Voxel voxel = unpack_voxel(voxel_data);
+
+        GbufferPathVertex res;
+        res.is_hit = true;
+        res.position = world_pos;
+        res.gbuffer_packed.data0 = uvec4(0);
+        res.gbuffer_packed.data0.x = voxel_data.data;
+        res.gbuffer_packed.data0.y = nrm_to_u16(voxel.normal);
+        res.ray_t = length(world_pos - self.ray.Origin);
+        return res;
+    } else {
+        GbufferPathVertex res;
+        res.is_hit = false;
+        res.ray_t = FLT_MAX;
+        return res;
+    }
+}
+#else
 GbufferPathVertex trace(GbufferRaytrace self, VoxelBufferPtrs voxels_buffer_ptrs) {
     VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(voxels_buffer_ptrs, self.ray.Direction, MAX_STEPS, self.ray.TMax, self.ray.TMin, true), self.ray.Origin);
     const bool is_hit = trace_result.dist < self.ray.TMax;
@@ -111,3 +147,4 @@ GbufferPathVertex trace(GbufferRaytrace self, VoxelBufferPtrs voxels_buffer_ptrs
         return res;
     }
 }
+#endif

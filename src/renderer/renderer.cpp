@@ -29,6 +29,7 @@ Renderer::Renderer() : impl{std::make_unique<RendererImpl>()} {
 
     AppSettings::add<settings::ComboBox>({"Graphics", "TAA Method", {.value = 1}, {.task_graph_depends = true, .options = {"None", "Kajiya TAA", "FSR 2.2"}}});
     AppSettings::add<settings::Checkbox>({"Graphics", "Update Sky", {.value = true}, {.task_graph_depends = true}});
+    AppSettings::add<settings::Checkbox>({"Graphics", "Use HWRT", {.value = true}, {.task_graph_depends = true}});
 
     auto radical_inverse = [](daxa_u32 n, daxa_u32 base) -> daxa_f32 {
         auto val = 0.0f;

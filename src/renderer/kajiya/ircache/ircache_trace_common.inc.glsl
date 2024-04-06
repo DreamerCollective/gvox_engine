@@ -14,8 +14,21 @@
 
 bool rt_is_shadowed(RayDesc ray) {
     ShadowRayPayload shadow_payload = ShadowRayPayload_new_hit();
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
+    uint rayFlags = gl_RayFlagsNoneEXT;
+    uint cull_mask = 0xFF;
+    uint sbtRecordOffset = 0;
+    uint sbtRecordStride = 0;
+    uint missIndex = 0;
+    traceRayEXT(
+        accelerationStructureEXT(push.uses.tlas),
+        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
+        ray.Origin, ray.TMin, ray.Direction, ray.TMax, PAYLOAD_LOC);
+    shadow_payload.is_shadowed = prd.data1 != miss_ray_payload().data1;
+#else
     VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin, true), ray.Origin);
     shadow_payload.is_shadowed = trace_result.dist < ray.TMax;
+#endif
     return shadow_payload.is_shadowed;
 }
 
@@ -81,7 +94,11 @@ IrcacheTraceResult ircache_trace(Vertex entry, DiffuseBrdf brdf, SampleParams sa
         gbuffer_raytrace_ = with_cone(gbuffer_raytrace_, RayCone_from_spread_angle(0.1));
         gbuffer_raytrace_ = with_cull_back_faces(gbuffer_raytrace_, false);
         gbuffer_raytrace_ = with_path_length(gbuffer_raytrace_, path_length + 1); // +1 because this is indirect light
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
+        const GbufferPathVertex primary_hit = trace(gbuffer_raytrace_);
+#else
         const GbufferPathVertex primary_hit = trace(gbuffer_raytrace_, VOXELS_BUFFER_PTRS);
+#endif
 
         if (primary_hit.is_hit) {
             if (0 == path_length) {
