@@ -130,3 +130,4 @@ struct BlasGeom {
     daxa_u32 bitmask[BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE / 32];
 };
 DAXA_DECL_BUFFER_PTR(BlasGeom)
+DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(BlasGeom))

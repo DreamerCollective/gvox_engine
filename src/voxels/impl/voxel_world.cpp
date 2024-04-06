@@ -234,7 +234,6 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         });
         buffers.blas_transforms = gpu_context.find_or_add_temporal_buffer({
             .size = sizeof(daxa_f32vec3) * voxel_chunks.size(),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // TODO
             .name = "blas_transforms",
         });
 
@@ -247,6 +246,11 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // TODO
             .name = "staging_blas_attr_pointers",
+        });
+        staging_blas_transforms = gpu_context.find_or_add_temporal_buffer({
+            .size = sizeof(daxa_f32vec3) * voxel_chunks.size(),
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // TODO
+            .name = "staging_blas_transforms",
         });
 
         daxa::TaskGraph temp_task_graph = daxa::TaskGraph({
@@ -541,13 +545,10 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 }
                 blas_chunk.attr_buffer = device.create_buffer({
                     .size = sizeof(VoxelBrickAttribs) * blas_chunk.attrib_bricks.size(),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
                     .name = "attr_buffer",
                 });
-                auto attr_host_ptr = device.get_host_address_as<VoxelBrickAttribs>(blas_chunk.attr_buffer).value();
                 auto attr_dev_ptr = device.get_device_address(blas_chunk.attr_buffer).value();
                 attr_pointers_host_ptr[chunk_update.info.chunk_index] = attr_dev_ptr;
-                std::copy(blas_chunk.attrib_bricks.begin(), blas_chunk.attrib_bricks.end(), attr_host_ptr);
             }
 
             if (!blas_chunk.geom_buffer.is_empty()) {
@@ -555,13 +556,10 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
             }
             blas_chunk.geom_buffer = device.create_buffer({
                 .size = sizeof(BlasGeom) * blas_chunk.blas_geoms.size(),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // TODO
                 .name = "geom_buffer",
             });
-            auto geom_host_ptr = device.get_host_address_as<BlasGeom>(blas_chunk.geom_buffer).value();
             auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
             geom_pointers_host_ptr[chunk_update.info.chunk_index] = geom_dev_ptr;
-            std::copy(blas_chunk.blas_geoms.begin(), blas_chunk.blas_geoms.end(), geom_host_ptr);
             auto geometry = std::array{
                 daxa::BlasAabbGeometryInfo{
                     .data = geom_dev_ptr,
@@ -618,60 +616,8 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
         }
         task_chunk_blases.set_blas({.blas = tracked_blases});
         temp_task_graph.use_persistent_blas(task_chunk_blases);
-        temp_task_graph.use_persistent_buffer(staging_blas_geom_pointers.task_resource);
-        temp_task_graph.use_persistent_buffer(buffers.blas_geom_pointers.task_resource);
-        temp_task_graph.use_persistent_buffer(staging_blas_attr_pointers.task_resource);
-        temp_task_graph.use_persistent_buffer(buffers.blas_attr_pointers.task_resource);
-        temp_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_geom_pointers.task_resource),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_attr_pointers.task_resource),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_geom_pointers.task_resource),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_attr_pointers.task_resource),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
-                ti.recorder.copy_buffer_to_buffer({
-                    .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{0}).ids[0],
-                    .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{2}).ids[0],
-                    .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
-                });
-                ti.recorder.copy_buffer_to_buffer({
-                    .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{1}).ids[0],
-                    .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{3}).ids[0],
-                    .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
-                });
-            },
-            .name = "copy pointers",
-        });
-        temp_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, task_chunk_blases),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
-                for (auto &voxel_chunk : voxel_chunks) {
-                    auto &blas_chunk = voxel_chunk.blas_chunk;
-                    if (!blas_chunk.blas_geoms.empty() && voxel_chunk.needs_blas_rebuild) {
-                        voxel_chunk.needs_blas_rebuild = false;
-                        auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
-                        auto geometry = std::array{
-                            daxa::BlasAabbGeometryInfo{
-                                .data = geom_dev_ptr,
-                                .stride = sizeof(BlasGeom),
-                                .count = static_cast<uint32_t>(blas_chunk.blas_geoms.size()),
-                                .flags = daxa::GeometryFlagBits::OPAQUE,
-                            },
-                        };
-                        blas_chunk.blas_build_info.geometries = geometry;
-                        ti.recorder.build_acceleration_structures({
-                            .blas_build_infos = std::array{blas_chunk.blas_build_info},
-                        });
-                    }
-                }
-            },
-            .name = "blas build",
-        });
 
-        auto blas_transforms_host_ptr = device.get_host_address_as<daxa_f32vec3>(buffers.blas_transforms.resource_id).value();
+        auto blas_transforms_host_ptr = device.get_host_address_as<daxa_f32vec3>(staging_blas_transforms.resource_id).value();
 
         auto blas_instance_info = std::array{
             daxa::TlasInstanceInfo{
@@ -712,6 +658,105 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 .blas_device_address = device.get_device_address(blas_chunk.blas).value(),
             };
         }
+        temp_task_graph.use_persistent_buffer(staging_blas_geom_pointers.task_resource);
+        temp_task_graph.use_persistent_buffer(buffers.blas_geom_pointers.task_resource);
+        temp_task_graph.use_persistent_buffer(staging_blas_attr_pointers.task_resource);
+        temp_task_graph.use_persistent_buffer(buffers.blas_attr_pointers.task_resource);
+        temp_task_graph.use_persistent_buffer(staging_blas_transforms.task_resource);
+        temp_task_graph.use_persistent_buffer(buffers.blas_transforms.task_resource);
+        temp_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_geom_pointers.task_resource),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_geom_pointers.task_resource),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_attr_pointers.task_resource),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_attr_pointers.task_resource),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_transforms.task_resource),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_transforms.task_resource),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                ti.recorder.copy_buffer_to_buffer({
+                    .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{0}).ids[0],
+                    .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{1}).ids[0],
+                    .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
+                });
+                ti.recorder.copy_buffer_to_buffer({
+                    .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{2}).ids[0],
+                    .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{3}).ids[0],
+                    .size = sizeof(daxa::DeviceAddress) * voxel_chunks.size(),
+                });
+                ti.recorder.copy_buffer_to_buffer({
+                    .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{4}).ids[0],
+                    .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{5}).ids[0],
+                    .size = sizeof(daxa_f32vec3) * voxel_chunks.size(),
+                });
+
+                // NOTE(grundlett): Hacky way of not needing to sync on these buffers...
+                for (auto const &chunk_update : chunk_updates) {
+                    if (chunk_update.info.flags != 1) {
+                        continue;
+                    }
+                    auto &voxel_chunk = voxel_chunks[chunk_update.info.chunk_index];
+                    auto &blas_chunk = voxel_chunk.blas_chunk;
+                    if (blas_chunk.blas_geoms.empty()) {
+                        continue;
+                    }
+
+                    auto staging_buffer = ti.device.create_buffer({
+                        .size = sizeof(BlasGeom) * blas_chunk.blas_geoms.size() + sizeof(VoxelBrickAttribs) * blas_chunk.attrib_bricks.size(),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                        .name = "staging_buffer",
+                    });
+                    ti.recorder.destroy_buffer_deferred(staging_buffer);
+                    auto staging_ptr = device.get_host_address_as<uint8_t>(staging_buffer).value();
+                    auto geom_host_ptr = reinterpret_cast<BlasGeom *>(staging_ptr + 0);
+                    auto attr_host_ptr = reinterpret_cast<VoxelBrickAttribs *>(staging_ptr + sizeof(BlasGeom) * blas_chunk.blas_geoms.size());
+                    std::copy(blas_chunk.blas_geoms.begin(), blas_chunk.blas_geoms.end(), geom_host_ptr);
+                    std::copy(blas_chunk.attrib_bricks.begin(), blas_chunk.attrib_bricks.end(), attr_host_ptr);
+                    ti.recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = blas_chunk.geom_buffer,
+                        .size = sizeof(BlasGeom) * blas_chunk.blas_geoms.size(),
+                    });
+                    ti.recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = blas_chunk.attr_buffer,
+                        .src_offset = sizeof(BlasGeom) * blas_chunk.blas_geoms.size(),
+                        .size = sizeof(VoxelBrickAttribs) * blas_chunk.attrib_bricks.size(),
+                    });
+                }
+            },
+            .name = "copy pointers",
+        });
+
+        temp_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, buffers.blas_transforms.task_resource),
+                daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, task_chunk_blases),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                for (auto &voxel_chunk : voxel_chunks) {
+                    auto &blas_chunk = voxel_chunk.blas_chunk;
+                    if (!blas_chunk.blas_geoms.empty() && voxel_chunk.needs_blas_rebuild) {
+                        voxel_chunk.needs_blas_rebuild = false;
+                        auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
+                        auto geometry = std::array{
+                            daxa::BlasAabbGeometryInfo{
+                                .data = geom_dev_ptr,
+                                .stride = sizeof(BlasGeom),
+                                .count = static_cast<uint32_t>(blas_chunk.blas_geoms.size()),
+                                .flags = daxa::GeometryFlagBits::OPAQUE,
+                            },
+                        };
+                        blas_chunk.blas_build_info.geometries = geometry;
+                        ti.recorder.build_acceleration_structures({
+                            .blas_build_infos = std::array{blas_chunk.blas_build_info},
+                        });
+                    }
+                }
+            },
+            .name = "blas build",
+        });
+
         blas_instance_info[0].data = device.get_device_address(blas_instances_buffer).value();
         auto tlas_build_info = daxa::TlasBuildInfo{
             .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,

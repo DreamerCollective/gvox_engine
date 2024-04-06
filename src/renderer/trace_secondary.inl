@@ -16,6 +16,26 @@ struct TraceSecondaryComputePush {
     DAXA_TH_BLOB(TraceSecondaryCompute, uses)
 };
 
+DAXA_DECL_TASK_HEAD_BEGIN(TraceShadowRt)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)), attribute_pointers)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_f32vec3), blas_transforms)
+DAXA_TH_TLAS_PTR(RAY_TRACING_SHADER_READ, tlas)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_3D, blue_noise_vec2)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, g_buffer_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, depth_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, particles_shadow_depth_tex)
+// TODO: Figure out why this needs to be an ID...
+DAXA_TH_IMAGE_ID(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, shadow_mask)
+DAXA_DECL_TASK_HEAD_END
+#if defined(DAXA_RAY_TRACING) || defined(__cplusplus)
+struct TraceShadowRtPush {
+    daxa_TlasId tlas;
+    DAXA_TH_BLOB(TraceShadowRt, uses)
+};
+#endif
+
 #if defined(__cplusplus)
 
 #include <application/settings.hpp>
@@ -30,27 +50,76 @@ inline auto trace_shadows(GpuContext &gpu_context, GbufferDepth &gbuffer_depth, 
     AppSettings::add<settings::Checkbox>({"Graphics", "Render Shadows", {.value = true}, {.task_graph_depends = true}});
 
     auto render_shadows = AppSettings::get<settings::Checkbox>("Graphics", "Render Shadows").value;
+    auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
 
     if (render_shadows) {
-        gpu_context.add(ComputeTask<TraceSecondaryCompute::Task, TraceSecondaryComputePush, NoTaskInfo>{
-            .source = daxa::ShaderFile{"trace_secondary.comp.glsl"},
-            .views = std::array{
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.shadow_mask, shadow_mask}},
-                VOXELS_BUFFER_USES_ASSIGN(TraceSecondaryCompute, voxel_buffers),
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.depth_image_id, gbuffer_depth.depth.current()}},
-                daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.particles_shadow_depth_tex, particles_shadow_depth_image}},
-            },
-            .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TraceSecondaryComputePush &push, NoTaskInfo const &) {
-                auto const image_info = ti.device.info_image(ti.get(TraceSecondaryCompute::AT.g_buffer_image_id).ids[0]).value();
-                ti.recorder.set_pipeline(pipeline);
-                set_push_constant(ti, push);
-                // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
-                ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});
-            },
-        });
+        if (!use_hwrt || false) {
+            gpu_context.add(ComputeTask<TraceSecondaryCompute::Task, TraceSecondaryComputePush, NoTaskInfo>{
+                .source = daxa::ShaderFile{"trace_secondary.comp.glsl"},
+                .views = std::array{
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.shadow_mask, shadow_mask}},
+                    VOXELS_BUFFER_USES_ASSIGN(TraceSecondaryCompute, voxel_buffers),
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.depth_image_id, gbuffer_depth.depth.current()}},
+                    daxa::TaskViewVariant{std::pair{TraceSecondaryCompute::AT.particles_shadow_depth_tex, particles_shadow_depth_image}},
+                },
+                .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, TraceSecondaryComputePush &push, NoTaskInfo const &) {
+                    auto const image_info = ti.device.info_image(ti.get(TraceSecondaryCompute::AT.g_buffer_image_id).ids[0]).value();
+                    ti.recorder.set_pipeline(pipeline);
+                    set_push_constant(ti, push);
+                    // assert((render_size.x % 8) == 0 && (render_size.y % 8) == 0);
+                    ti.recorder.dispatch({(image_info.size.x + 7) / 8, (image_info.size.y + 7) / 8});
+                },
+            });
+        } else {
+            gpu_context.add(RayTracingTask<TraceShadowRt::Task, TraceShadowRtPush, NoTaskInfo>{
+                .compile_info = daxa::RayTracingPipelineCompileInfo{
+                    .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
+                    .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
+                    .closest_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
+                    .miss_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_shadow.rt.glsl"}}},
+                    // Groups are in order of their shader indices.
+                    // NOTE: The order of the groups is important! raygen, miss, hit, callable
+                    .shader_groups_infos = {
+                        daxa::RayTracingShaderGroupInfo{
+                            .type = daxa::ShaderGroup::GENERAL,
+                            .general_shader_index = 0,
+                        },
+                        daxa::RayTracingShaderGroupInfo{
+                            .type = daxa::ShaderGroup::GENERAL,
+                            .general_shader_index = 3,
+                        },
+                        daxa::RayTracingShaderGroupInfo{
+                            .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
+                            .closest_hit_shader_index = 2,
+                            .intersection_shader_index = 1,
+                        },
+                    },
+                    .push_constant_size = sizeof(TraceShadowRtPush),
+                },
+                .views = std::array{
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.gpu_input, gpu_context.task_input_buffer}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.geometry_pointers, voxel_buffers.blas_geom_pointers.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.attribute_pointers, voxel_buffers.blas_attr_pointers.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.blas_transforms, voxel_buffers.blas_transforms.task_resource}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.tlas, voxel_buffers.task_tlas}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.g_buffer_image_id, gbuffer_depth.gbuffer}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.depth_image_id, gbuffer_depth.depth.current()}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.particles_shadow_depth_tex, particles_shadow_depth_image}},
+                    daxa::TaskViewVariant{std::pair{TraceShadowRt::AT.shadow_mask, shadow_mask}},
+                },
+                .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, TraceShadowRtPush &push, NoTaskInfo const &) {
+                    auto const image_info = ti.device.info_image(ti.get(TraceShadowRt::AT.g_buffer_image_id).ids[0]).value();
+                    ti.recorder.set_pipeline(pipeline);
+                    push.tlas = ti.get(TraceShadowRt::AT.tlas).ids[0];
+                    set_push_constant(ti, push);
+                    ti.recorder.trace_rays({.width = image_info.size.x, .height = image_info.size.y, .depth = 1});
+                },
+            });
+        }
     } else {
         clear_task_images(gpu_context.frame_task_graph, std::array<daxa::TaskImageView, 1>{shadow_mask}, std::array<daxa::ClearValue, 1>{std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}});
     }

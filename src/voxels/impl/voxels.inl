@@ -38,6 +38,7 @@ struct VoxelBrickAttribs {
     PackedVoxel packed_voxels[VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE * VOXEL_BRICK_SIZE];
 };
 DAXA_DECL_BUFFER_PTR(VoxelBrickAttribs)
+DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(VoxelBrickAttribs))
 
 struct VoxelLeafChunk {
     daxa_u32 flags;

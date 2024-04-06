@@ -37,19 +37,16 @@ struct R32D32BlitPush {
     DAXA_TH_BLOB(R32D32Blit, uses)
 };
 
-DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(BlasGeom))
-DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(VoxelBrickAttribs))
-
 DAXA_DECL_TASK_HEAD_BEGIN(TestRt)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)), attribute_pointers)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_f32vec3), blas_transforms)
 DAXA_TH_TLAS_PTR(RAY_TRACING_SHADER_READ, tlas)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, g_buffer_image_id)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, velocity_image_id)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, vs_normal_image_id)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_READ_WRITE, REGULAR_2D, depth_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, g_buffer_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, velocity_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, vs_normal_image_id)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, depth_image_id)
 DAXA_DECL_TASK_HEAD_END
 #if defined(DAXA_RAY_TRACING) || defined(__cplusplus)
 struct TestRtPush {
@@ -164,7 +161,6 @@ struct GbufferRenderer {
                 .compile_info = daxa::RayTracingPipelineCompileInfo{
                     .ray_gen_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
                     .intersection_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
-                    .any_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
                     .closest_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
                     .miss_hit_infos = {daxa::ShaderCompileInfo{.source = daxa::ShaderFile{"trace_primary.rt.glsl"}}},
                     // Groups are in order of their shader indices.
@@ -176,12 +172,11 @@ struct GbufferRenderer {
                         },
                         daxa::RayTracingShaderGroupInfo{
                             .type = daxa::ShaderGroup::GENERAL,
-                            .general_shader_index = 4,
+                            .general_shader_index = 3,
                         },
                         daxa::RayTracingShaderGroupInfo{
                             .type = daxa::ShaderGroup::PROCEDURAL_HIT_GROUP,
-                            .closest_hit_shader_index = 3,
-                            .any_hit_shader_index = 2,
+                            .closest_hit_shader_index = 2,
                             .intersection_shader_index = 1,
                         },
                     },

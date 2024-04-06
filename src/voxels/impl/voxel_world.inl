@@ -124,6 +124,7 @@ struct VoxelWorld {
     daxa::TaskBlas task_chunk_blases;
     TemporalBuffer staging_blas_geom_pointers;
     TemporalBuffer staging_blas_attr_pointers;
+    TemporalBuffer staging_blas_transforms;
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void init_gpu_malloc(GpuContext &gpu_context);
