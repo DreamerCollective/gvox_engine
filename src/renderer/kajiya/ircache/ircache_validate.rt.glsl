@@ -1,8 +1,6 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#include <daxa/daxa.inl>
-
 #include "../../rt.glsl"
 
 #include <renderer/kajiya/ircache.inl>

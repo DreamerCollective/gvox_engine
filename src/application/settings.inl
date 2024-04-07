@@ -3,7 +3,6 @@
 // #define DAXA_BUFFER_PTR_COMPAT
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
-#include <daxa/daxa.inl>
 #include <daxa/utils/task_graph.inl>
 #undef DAXA_ENABLE_SHADER_NO_NAMESPACE
 #undef DAXA_ENABLE_IMAGE_OVERLOADS_BASIC
