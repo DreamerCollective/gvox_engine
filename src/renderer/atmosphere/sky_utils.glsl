@@ -1,6 +1,7 @@
 #pragma once
 
 #include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/math_const.glsl>
 
 #define SUN_DIRECTION deref(gpu_input).sky_settings.sun_direction
 #define SUN_INTENSITY 1.0
@@ -223,10 +224,12 @@ bool move_to_top_atmosphere(inout vec3 world_position, vec3 world_direction,
     return true;
 }
 
+#include <utilities/gpu/normal.glsl>
+
 vec3 sample_sun_direction(
     daxa_BufferPtr(GpuInput) gpu_input,
     vec2 urand, bool soft) {
-    if (soft && PER_VOXEL_NORMALS == 0) {
+    if (soft && false) {
         float sun_angular_radius_cos = deref(gpu_input).sky_settings.sun_angular_radius_cos;
         if (sun_angular_radius_cos < 1.0) {
             const mat3 basis = build_orthonormal_basis(normalize(SUN_DIRECTION));

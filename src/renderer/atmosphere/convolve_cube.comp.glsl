@@ -1,6 +1,5 @@
 #include "sky.inl"
 #include "sky.glsl"
-#include <utilities/gpu/math.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(ConvolveCubeComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
@@ -19,6 +18,17 @@ float radical_inverse_vdc(uint bits) {
 
 vec2 hammersley(uint i, uint n) {
     return vec2(float(i + 1) / n, radical_inverse_vdc(i + 1));
+}
+
+mat3 CUBE_MAP_FACE_ROTATION(uint face) {
+    switch (face) {
+    case 0: return mat3(+0, +0, -1, +0, -1, +0, -1, +0, +0);
+    case 1: return mat3(+0, +0, +1, +0, -1, +0, +1, +0, +0);
+    case 2: return mat3(+1, +0, +0, +0, +0, +1, +0, -1, +0);
+    case 3: return mat3(+1, +0, +0, +0, +0, -1, +0, +1, +0);
+    case 4: return mat3(+1, +0, +0, +0, -1, +0, +0, +0, -1);
+    default: return mat3(-1, +0, +0, +0, -1, +0, +0, +0, +1);
+    }
 }
 
 layout(local_size_x = 2, local_size_y = 2, local_size_z = 32) in;

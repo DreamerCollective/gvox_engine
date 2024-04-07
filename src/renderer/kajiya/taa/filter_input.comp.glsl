@@ -1,7 +1,7 @@
 #include <renderer/kajiya/taa.inl>
 
 #include <g_samplers>
-#include "../inc/camera.glsl"
+#include <utilities/gpu/math.glsl>
 #include "../inc/color.glsl"
 #include "taa_common.glsl"
 

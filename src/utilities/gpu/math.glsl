@@ -211,47 +211,6 @@ void intersect(in out vec3 ray_pos, vec3 ray_dir, vec3 inv_dir, BoundingBox b) {
 #include <utilities/gpu/signed_distance.glsl>
 #include <utilities/gpu/random.glsl>
 
-mat3 tbn_from_normal(vec3 nrm) {
-    vec3 tangent = normalize(cross(nrm, -nrm.zxy));
-    vec3 bi_tangent = cross(nrm, tangent);
-    return mat3(tangent, bi_tangent, nrm);
-}
-
-// Building an Orthonormal Basis, Revisited
-// http://jcgt.org/published/0006/01/01/
-mat3 build_orthonormal_basis(vec3 n) {
-    vec3 b1;
-    vec3 b2;
-
-    if (n.z < 0.0) {
-        const float a = 1.0 / (1.0 - n.z);
-        const float b = n.x * n.y * a;
-        b1 = vec3(1.0 - n.x * n.x * a, -b, n.x);
-        b2 = vec3(b, n.y * n.y * a - 1.0, -n.y);
-    } else {
-        const float a = 1.0 / (1.0 + n.z);
-        const float b = -n.x * n.y * a;
-        b1 = vec3(1.0 - n.x * n.x * a, b, -n.x);
-        b2 = vec3(b, 1.0 - n.y * n.y * a, -n.y);
-    }
-
-    return mat3(b1, b2, n);
-}
-
-vec3 uniform_sample_cone(vec2 urand, float cos_theta_max) {
-    float cos_theta = (1.0 - urand.x) + urand.x * cos_theta_max;
-    float sin_theta = sqrt(clamp(1.0 - cos_theta * cos_theta, 0.0, 1.0));
-    float phi = urand.y * (M_PI * 2.0);
-    return vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
-}
-
-vec3 uniform_sample_hemisphere(vec2 urand) {
-    float phi = urand.y * 2.0 * M_PI;
-    float cos_theta = 1.0 - urand.x;
-    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    return vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
-}
-
 vec2 rsi(vec3 r0, vec3 rd, float sr) {
     // ray-sphere intersection that assumes
     // the sphere is centered at the origin.
@@ -283,15 +242,4 @@ ivec3 imod3(ivec3 p, int m) {
 }
 ivec3 imod3(ivec3 p, ivec3 m) {
     return ivec3(imod(p.x, m.x), imod(p.y, m.y), imod(p.z, m.z));
-}
-
-mat3 CUBE_MAP_FACE_ROTATION(uint face) {
-    switch (face) {
-    case 0: return mat3(+0, +0, -1, +0, -1, +0, -1, +0, +0);
-    case 1: return mat3(+0, +0, +1, +0, -1, +0, +1, +0, +0);
-    case 2: return mat3(+1, +0, +0, +0, +0, +1, +0, -1, +0);
-    case 3: return mat3(+1, +0, +0, +0, +0, -1, +0, +1, +0);
-    case 4: return mat3(+1, +0, +0, +0, -1, +0, +0, +0, -1);
-    default: return mat3(-1, +0, +0, +0, -1, +0, +0, +0, +1);
-    }
 }

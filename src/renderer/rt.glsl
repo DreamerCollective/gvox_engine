@@ -1,7 +1,6 @@
 #pragma once
 
 #include <voxels/voxels.glsl>
-#include <utilities/gpu/math.glsl>
 #include <application/input.inl>
 #include <voxels/impl/voxels.inl>
 

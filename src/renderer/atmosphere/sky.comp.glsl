@@ -1,6 +1,5 @@
 #include "sky.inl"
 
-#include <utilities/gpu/math.glsl>
 #include "sky_utils.glsl"
 #include "atmosphere.glsl"
 #include <g_samplers>

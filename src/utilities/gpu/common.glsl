@@ -2,10 +2,6 @@
 
 #include <renderer/kajiya/inc/math_const.glsl>
 
-#define select(cond, a, b) mix(b, a, cond)
-// ((cond) ? (a) : (b))
-#define rcp(x) (1.0 / x)
-
 float square(float x) { return x * x; }
 vec2 square(vec2 x) { return x * x; }
 vec3 square(vec3 x) { return x * x; }

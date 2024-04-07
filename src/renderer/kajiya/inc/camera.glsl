@@ -2,7 +2,6 @@
 
 // NOTE(grundlett): Merged together frame_constants.hlsl and uv.hlsl
 
-#include <utilities/gpu/math.glsl>
 #include <application/input.inl>
 
 vec2 get_uv(ivec2 pix, vec4 tex_size) { return (vec2(pix) + 0.5) * tex_size.zw; }

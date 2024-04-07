@@ -303,6 +303,8 @@ void main() {
 #endif
 #if SsaoUpscaleComputeShader
 
+#include <utilities/gpu/normal.glsl>
+
 DAXA_DECL_PUSH_CONSTANT(SsaoUpscaleComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 daxa_ImageViewIndex g_buffer_image_id = push.uses.g_buffer_image_id;

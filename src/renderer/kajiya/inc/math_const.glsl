@@ -27,4 +27,7 @@
 #define FP16_MIN_POS 0.000000059604645
 #define FP16_MAX 65504
 
-const float GOLDEN_ANGLE = 2.39996323;
+#define GOLDEN_ANGLE 2.39996323
+
+#define select(cond, a, b) mix(b, a, cond)
+#define rcp(x) (1.0 / x)

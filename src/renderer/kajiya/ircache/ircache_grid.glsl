@@ -1,4 +1,3 @@
-#include <utilities/gpu/math.glsl>
 #include "ircache_constants.glsl"
 
 #define IRCACHE_USE_NORMAL_BASED_CELL_OFFSET 1
