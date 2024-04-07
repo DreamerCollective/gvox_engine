@@ -60,7 +60,7 @@ void main() {
 
     // NOTE(grundlett): Here we fix the ray origin for when the player causes the world to wrap.
     // We technically don't need to write out if the world does not wrap in this frame, but IDC for now.
-    vec3 prev_ray_orig = safeTexelFetch(ray_orig_history_tex, ivec2(px), 0).xyz;
+    vec3 prev_ray_orig = safeImageLoad(ray_orig_history_tex, ivec2(px)).xyz;
     prev_ray_orig -= vec3(deref(gpu_input).player.player_unit_offset - deref(gpu_input).player.prev_unit_offset);
     safeImageStore(ray_orig_history_tex, ivec2(px), vec4(prev_ray_orig, 0));
 
@@ -70,7 +70,7 @@ void main() {
 
         const vec3 prev_ray_delta = safeTexelFetch(reservoir_ray_history_tex, ivec2(px), 0).xyz;
 
-        const vec4 prev_radiance_packed = safeTexelFetch(irradiance_history_tex, ivec2(px), 0);
+        const vec4 prev_radiance_packed = safeImageLoad(irradiance_history_tex, ivec2(px));
         const vec3 prev_radiance = max(0.0.xxx, prev_radiance_packed.rgb);
 
         RayDesc prev_ray;
@@ -100,7 +100,7 @@ void main() {
             // rays hitting the bright spots by chance. The PDF division compounded
             // by the increase in radiance causes fireflies to appear.
             // As a HACK, we will clamp that by scaling down the `M` factor then.
-            Reservoir1spp r = Reservoir1spp_from_raw(safeTexelFetchU(reservoir_tex, ivec2(px), 0).xy);
+            Reservoir1spp r = Reservoir1spp_from_raw(safeImageLoadU(reservoir_tex, ivec2(px)).xy);
             const float lum_old = sRGB_to_luminance(prev_radiance);
             const float lum_new = sRGB_to_luminance(new_radiance);
             r.M *= clamp(lum_old / max(1e-8, lum_new), 0.03, 1.0);

@@ -172,7 +172,7 @@ void main() {
 
     GbufferData gbuffer = unpack(GbufferDataPacked(safeTexelFetchU(gbuffer_tex, ivec2(px), 0)));
 
-    const float restir_invalidity = safeTexelFetch(refl_restir_invalidity_tex, ivec2(px / 2), 0).x;
+    const float restir_invalidity = safeImageLoad(refl_restir_invalidity_tex, ivec2(px / 2)).x;
 
     float box_size = 1;
     // float n_deviations = 1;

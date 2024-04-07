@@ -2,6 +2,7 @@
 
 // TODO: Safe fetches are super slow...
 #define SAFE_FETCHES 0
+#define SAFE_LOADS 0
 #define SAFE_STORES 1
 
 vec4 safeTexelFetch(daxa_ImageViewIndex tex, ivec2 p, int lod) {
@@ -32,6 +33,36 @@ ivec4 safeTexelFetchI(daxa_ImageViewIndex tex, ivec2 p, int lod) {
     }
 #endif
     return texelFetch(daxa_itexture2D(tex), p, lod);
+}
+
+vec4 safeImageLoad(daxa_ImageViewIndex tex, ivec2 p) {
+#if SAFE_LOADS
+    ivec2 size = imageSize(daxa_image2D(tex)).xy;
+    if (any(lessThan(p, ivec2(0))) || any(greaterThanEqual(p, size))) {
+        return vec4(0);
+    }
+#endif
+    return imageLoad(daxa_image2D(tex), p);
+}
+
+uvec4 safeImageLoadU(daxa_ImageViewIndex tex, ivec2 p) {
+#if SAFE_LOADS
+    ivec2 size = imageSize(daxa_uimage2D(tex)).xy;
+    if (any(lessThan(p, ivec2(0))) || any(greaterThanEqual(p, size))) {
+        return uvec4(0);
+    }
+#endif
+    return imageLoad(daxa_uimage2D(tex), p);
+}
+
+ivec4 safeImageLoadI(daxa_ImageViewIndex tex, ivec2 p) {
+#if SAFE_LOADS
+    ivec2 size = imageSize(daxa_iimage2D(tex)).xy;
+    if (any(lessThan(p, ivec2(0))) || any(greaterThanEqual(p, size))) {
+        return ivec4(0);
+    }
+#endif
+    return imageLoad(daxa_iimage2D(tex), p);
 }
 
 void safeImageStore(daxa_ImageViewIndex img, ivec2 p, vec4 val) {

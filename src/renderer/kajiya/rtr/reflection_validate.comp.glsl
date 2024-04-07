@@ -80,8 +80,8 @@ void main() {
     // TODO: frame consistency
     const uint noise_offset = deref(gpu_input).frame_index * select(USE_TEMPORAL_JITTER, 1, 0);
 
-    vec3 ray_orig_ws = safeTexelFetch(ray_orig_history_tex, ivec2(px), 0).xyz + get_prev_eye_position(gpu_input);
-    vec3 ray_hit_ws = safeTexelFetch(ray_history_tex, ivec2(px), 0).xyz + ray_orig_ws;
+    vec3 ray_orig_ws = safeImageLoad(ray_orig_history_tex, ivec2(px)).xyz + get_prev_eye_position(gpu_input);
+    vec3 ray_hit_ws = safeImageLoad(ray_history_tex, ivec2(px)).xyz + ray_orig_ws;
 
     // NOTE(grundlett): Here we fix the ray origin/hit for when the player causes the world to wrap.
     // We technically don't need to write out if the world does not wrap in this frame, but IDC for now.
@@ -101,9 +101,9 @@ void main() {
     uint rng = safeTexelFetchU(rng_history_tex, ivec2(px), 0).x;
     RtrTraceResult result = do_the_thing(px, gbuffer.normal, gbuffer.roughness, rng, outgoing_ray);
 
-    Reservoir1spp r = Reservoir1spp_from_raw(safeTexelFetchU(reservoir_history_tex, ivec2(px), 0).xy);
+    Reservoir1spp r = Reservoir1spp_from_raw(safeImageLoadU(reservoir_history_tex, ivec2(px)).xy);
 
-    const vec4 prev_irradiance_packed = safeTexelFetch(irradiance_history_tex, ivec2(px), 0);
+    const vec4 prev_irradiance_packed = safeImageLoad(irradiance_history_tex, ivec2(px));
     const vec3 prev_irradiance = max(0.0.xxx, prev_irradiance_packed.rgb * deref(gpu_input).pre_exposure_delta);
     const vec3 check_radiance = max(0.0.xxx, result.total_radiance);
 
@@ -128,7 +128,7 @@ void main() {
         // const uvec2 px = (main_px & ~1u) + HALFRES_SUBSAMPLE_OFFSET;
         const uvec2 px = gl_GlobalInvocationID.xy * 2 + hi_px_subpixels[(deref(gpu_input).frame_index + i) & 3];
 
-        const vec4 neighbor_prev_irradiance_packed = safeTexelFetch(irradiance_history_tex, ivec2(px), 0);
+        const vec4 neighbor_prev_irradiance_packed = safeImageLoad(irradiance_history_tex, ivec2(px));
         {
             const vec3 a = max(0.0.xxx, neighbor_prev_irradiance_packed.rgb * deref(gpu_input).pre_exposure_delta);
             const vec3 b = prev_irradiance;
@@ -145,7 +145,7 @@ void main() {
         safeImageStore(refl_restir_invalidity_tex, ivec2(px), vec4(invalidity));
 
         if (invalidity > 0) {
-            Reservoir1spp r = Reservoir1spp_from_raw(safeTexelFetchU(reservoir_history_tex, ivec2(px), 0).xy);
+            Reservoir1spp r = Reservoir1spp_from_raw(safeImageLoadU(reservoir_history_tex, ivec2(px)).xy);
             // r.M = max(0, min(r.M, exp2(log2(float(RTR_RESTIR_TEMPORAL_M_CLAMP)) * (1.0 - invalidity))));
             r.M *= 1 - invalidity;
             safeImageStoreU(reservoir_history_tex, ivec2(px), uvec4(as_raw(r), 0, 0));

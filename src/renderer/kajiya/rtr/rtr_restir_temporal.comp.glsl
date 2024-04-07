@@ -231,7 +231,7 @@ void main() {
     vec4 ray_orig_sel = vec4(0);
     vec3 ray_hit_sel_ws = vec3(1);
     vec3 hit_normal_sel = vec3(1);
-    uint rng_sel = safeTexelFetchU(rng_output_tex, ivec2(px), 0).r;
+    uint rng_sel = safeImageLoadU(rng_output_tex, ivec2(px)).r;
 
     Reservoir1sppStreamState stream_state = Reservoir1sppStreamState_create();
     Reservoir1spp reservoir = Reservoir1spp_create();
