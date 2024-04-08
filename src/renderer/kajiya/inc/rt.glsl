@@ -1,10 +1,10 @@
 #pragma once
 
-#include "math_const.glsl"
-#include "gbuffer.glsl"
-#include "ray_cone.glsl"
+#include <renderer/kajiya/inc/math_const.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
+#include <renderer/kajiya/inc/ray_cone.glsl>
 
-#include "../../rt.glsl"
+#include <renderer/rt.glsl>
 
 struct GbufferRayPayload {
     GbufferDataPacked gbuffer_packed;

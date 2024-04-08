@@ -3,12 +3,12 @@
 #include <utilities/gpu/math.glsl>
 #include <renderer/kajiya/inc/camera.glsl>
 #include <g_samplers>
-#include "../inc/color.glsl"
+#include <renderer/kajiya/inc/color.glsl>
 // #include <utilities/gpu/uv.glsl>
-// #include "../inc/frame_constants.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
 // #include <utilities/gpu/soft_color_clamp.glsl>
-#include "../inc/working_color_space.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/working_color_space.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(RtdgiTemporalFilterComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
@@ -53,7 +53,7 @@ FetchResult do_fetch(ivec2 px) {
     return FetchResult(neigh.rgb, working_luma(hist_neigh.rgb));
 }
 
-#include "../inc/prefetch.glsl"
+#include <renderer/kajiya/inc/prefetch.glsl>
 
 layout(local_size_x = PREFETCH_GROUP_SIZE, local_size_y = PREFETCH_GROUP_SIZE, local_size_z = 1) in;
 void main() {

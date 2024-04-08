@@ -1,7 +1,7 @@
 #include <renderer/kajiya/calculate_reprojection_map.inl>
-#include "inc/camera.glsl"
-#include "inc/bilinear.glsl"
-#include "inc/safety.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/bilinear.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 #include <g_samplers>
 
 DAXA_DECL_PUSH_CONSTANT(CalculateReprojectionMapComputePush, push)

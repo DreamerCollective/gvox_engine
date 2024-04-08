@@ -1,23 +1,23 @@
 #include <renderer/kajiya/rtr.inl>
 
 #include <renderer/kajiya/inc/camera.glsl>
-#include "../inc/rt.glsl"
+#include <renderer/kajiya/inc/rt.glsl>
 // #include <utilities/gpu/uv.glsl>
 // #include <utilities/gpu/pack_unpack.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/gbuffer.glsl"
-#include "../inc/brdf.glsl"
-#include "../inc/brdf_lut.glsl"
-#include "../inc/layered_brdf.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/brdf_lut.glsl>
+#include <renderer/kajiya/inc/layered_brdf.glsl>
 #include "blue_noise.glsl"
 // #include <utilities/gpu/atmosphere.glsl>
 // #include <utilities/gpu/sun.glsl>
 // #include <utilities/gpu/lights/triangle.glsl>
-#include "../inc/reservoir.glsl"
+#include <renderer/kajiya/inc/reservoir.glsl>
 #include "rtr_settings.glsl"
 #include "rtr_restir_pack_unpack.inc.glsl"
-#include "../inc/downscale.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/downscale.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 #define RESTIR_RESERVOIR_W_CLAMP 1e20
 #define RTR_RESTIR_BRDF_SAMPLING 1

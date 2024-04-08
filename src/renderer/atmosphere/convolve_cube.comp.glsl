@@ -1,5 +1,5 @@
 #include "sky.inl"
-#include "sky.glsl"
+#include <renderer/atmosphere/sky.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(ConvolveCubeComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

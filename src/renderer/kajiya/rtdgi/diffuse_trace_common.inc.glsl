@@ -26,7 +26,7 @@ uvec2 reservoir_payload_to_px(uint payload) {
 }
 
 #include <utilities/gpu/math.glsl>
-#include "../inc/ray_cone.glsl"
+#include <renderer/kajiya/inc/ray_cone.glsl>
 
 #include <voxels/voxels.glsl>
 

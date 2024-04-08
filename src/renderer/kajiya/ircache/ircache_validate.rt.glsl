@@ -1,7 +1,7 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#include "../../rt.glsl"
+#include <renderer/rt.glsl>
 
 #include <renderer/kajiya/ircache.inl>
 DAXA_DECL_PUSH_CONSTANT(IrcacheValidateRtPush, push)
@@ -26,22 +26,22 @@ daxa_RWBufferPtr(uint) ircache_entry_cell_buf = push.uses.ircache_entry_cell_buf
 
 #include <utilities/gpu/math.glsl>
 // #include <utilities/gpu/pack_unpack.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/gbuffer.glsl"
-#include "../inc/brdf.glsl"
-#include "../inc/brdf_lut.glsl"
-#include "../inc/layered_brdf.glsl"
-#include "../inc/rt.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/brdf_lut.glsl>
+#include <renderer/kajiya/inc/layered_brdf.glsl>
+#include <renderer/kajiya/inc/rt.glsl>
 #include <utilities/gpu/random.glsl>
-#include "../inc/quasi_random.glsl"
-#include "../inc/reservoir.glsl"
+#include <renderer/kajiya/inc/quasi_random.glsl>
+#include <renderer/kajiya/inc/reservoir.glsl>
 // #include <utilities/gpu/bindless_textures.glsl>
 // #include <utilities/gpu/atmosphere.glsl>
 #include <utilities/gpu/normal.glsl>
 // #include <utilities/gpu/lights/triangle.glsl>
-#include "../inc/color.glsl"
+#include <renderer/kajiya/inc/color.glsl>
 
-// #include "../inc/sun.hlsl"
+// #include <renderer/kajiya/inc/sun.hlsl>
 // #include "../wrc/lookup.hlsl"
 
 // Sample straight from the `ircache_aux_buf` instead of the SH.

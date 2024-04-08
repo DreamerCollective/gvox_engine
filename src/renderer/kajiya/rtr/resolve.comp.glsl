@@ -1,23 +1,23 @@
 #include <renderer/kajiya/rtr.inl>
 
 #include <renderer/kajiya/inc/camera.glsl>
-#include "../inc/color.glsl"
+#include <renderer/kajiya/inc/color.glsl>
 #include <g_samplers>
-// #include "../inc/frame_constants.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
 // #include <utilities/gpu/pack_unpack.glsl>
-#include "../inc/brdf.glsl"
-#include "../inc/brdf_lut.glsl"
-#include "../inc/layered_brdf.glsl"
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/brdf_lut.glsl>
+#include <renderer/kajiya/inc/layered_brdf.glsl>
 // #include <utilities/gpu/uv.glsl>
 // #include <utilities/gpu/hash.glsl>
 #include "blue_noise.glsl"
-#include "../inc/reservoir.glsl"
+#include <renderer/kajiya/inc/reservoir.glsl>
 // #include <utilities/gpu/morton.glsl>
 #include "../rtdgi/candidate_ray_dir.glsl"
 #include "rtr_settings.glsl"
 #include "rtr_restir_pack_unpack.inc.glsl"
-#include "../inc/downscale.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/downscale.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(RtrRestirResolveComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

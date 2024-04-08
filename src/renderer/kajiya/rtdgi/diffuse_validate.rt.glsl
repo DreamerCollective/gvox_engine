@@ -1,7 +1,7 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#include "../../rt.glsl"
+#include <renderer/rt.glsl>
 
 #include <renderer/kajiya/rtdgi.inl>
 DAXA_DECL_PUSH_CONSTANT(RtdgiValidateRtPush, push)
@@ -13,17 +13,17 @@ layout(location = PAYLOAD_LOC) rayPayloadEXT RayPayload prd;
 #include <utilities/gpu/math.glsl>
 // #include <utilities/gpu/uv.glsl>
 // #include <utilities/gpu/pack_unpack.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/gbuffer.glsl"
-#include "../inc/brdf.glsl"
-#include "../inc/brdf_lut.glsl"
-#include "../inc/layered_brdf.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/brdf_lut.glsl>
+#include <renderer/kajiya/inc/layered_brdf.glsl>
 // #include <utilities/gpu/blue_noise.glsl>
-#include "../inc/rt.glsl"
+#include <renderer/kajiya/inc/rt.glsl>
 // #include <utilities/gpu/atmosphere.glsl>
 // #include <utilities/gpu/sun.glsl>
 // #include <utilities/gpu/lights/triangle.glsl>
-#include "../inc/reservoir.glsl"
+#include <renderer/kajiya/inc/reservoir.glsl>
 // #include "../ircache/bindings.hlsl"
 // #include "../wrc/bindings.glsl"
 #include "rtdgi_restir_settings.glsl"
@@ -50,8 +50,8 @@ daxa_ImageViewIndex rt_history_invalidity_out_tex = push.uses.rt_history_invalid
 #include "candidate_ray_dir.glsl"
 
 #include "diffuse_trace_common.inc.glsl"
-#include "../inc/downscale.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/downscale.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 void main() {
     const uvec2 px = gl_LaunchIDEXT.xy;

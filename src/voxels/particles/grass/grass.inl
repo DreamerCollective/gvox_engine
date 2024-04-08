@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common.inl"
+#include <voxels/particles/common.inl>
 
 #define MAX_GRASS_BLADES (1 << 22)
 

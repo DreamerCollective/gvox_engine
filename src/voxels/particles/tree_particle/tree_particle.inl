@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common.inl"
+#include <voxels/particles/common.inl>
 
 #define MAX_TREE_PARTICLES (1 << 18)
 

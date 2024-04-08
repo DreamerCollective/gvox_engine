@@ -1,11 +1,11 @@
 #include <renderer/kajiya/rtdgi.inl>
 
-// #include "../inc/frame_constants.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
 // #include <utilities/gpu/hash.glsl>
-// #include "../inc/quasi_random.glsl"
+// #include <renderer/kajiya/inc/quasi_random.glsl>
 #include <utilities/gpu/math.glsl>
 #include "rtdgi_restir_settings.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(RtdgiValidityIntegrateComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

@@ -2,7 +2,7 @@
 
 // Based on https://github.com/sebh/HLSL-Spherical-Harmonics/
 
-#include "math_const.glsl"
+#include <renderer/kajiya/inc/math_const.glsl>
 
 vec4 sh_eval(vec3 dir) {
 	vec4 result;

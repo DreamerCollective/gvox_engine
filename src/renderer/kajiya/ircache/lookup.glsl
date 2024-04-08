@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../inc/quasi_random.glsl"
-#include "../inc/sh.glsl"
+#include <renderer/kajiya/inc/quasi_random.glsl>
+#include <renderer/kajiya/inc/sh.glsl>
 #include <renderer/kajiya/inc/camera.glsl>
 
 #include "ircache_grid.glsl"

@@ -3,17 +3,17 @@
 #include <renderer/kajiya/inc/camera.glsl>
 #include <g_samplers>
 // #include <utilities/gpu/uv.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/color.glsl"
-#include "../inc/bilinear.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/color.glsl>
+#include <renderer/kajiya/inc/bilinear.glsl>
 // #include <utilities/gpu/soft_color_clamp.glsl>
-#include "../inc/image.glsl"
-#include "../inc/brdf.glsl"
-#include "../inc/gbuffer.glsl"
+#include <renderer/kajiya/inc/image.glsl>
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
 #include "rtr_settings.glsl"
 
-#include "../inc/working_color_space.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/working_color_space.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 // Use this after tweaking all the spec.
 #define linear_to_working linear_rgb_to_crunched_luma_chroma
@@ -50,7 +50,7 @@ FetchResult do_fetch(ivec2 px) {
     return FetchResult(input_val, depth);
 }
 
-#include "../inc/prefetch.glsl"
+#include <renderer/kajiya/inc/prefetch.glsl>
 
 layout(local_size_x = PREFETCH_GROUP_SIZE, local_size_y = PREFETCH_GROUP_SIZE, local_size_z = 1) in;
 void main() {

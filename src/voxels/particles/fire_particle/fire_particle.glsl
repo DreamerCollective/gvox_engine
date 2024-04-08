@@ -3,7 +3,7 @@
 #include <utilities/gpu/noise.glsl>
 #include <g_samplers>
 
-#include "../particle.glsl"
+#include <voxels/particles/particle.glsl>
 
 vec3 get_fire_particle_offset(in out FireParticle self, uint index, uint i, float time) {
     rand_seed(index * 32 + i);

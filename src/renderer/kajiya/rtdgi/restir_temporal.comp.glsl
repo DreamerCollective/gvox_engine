@@ -2,24 +2,24 @@
 
 #include <renderer/kajiya/inc/camera.glsl>
 // #include <utilities/gpu/pack_unpack.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/gbuffer.glsl"
-#include "../inc/brdf.glsl"
-#include "../inc/brdf_lut.glsl"
-#include "../inc/layered_brdf.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/gbuffer.glsl>
+#include <renderer/kajiya/inc/brdf.glsl>
+#include <renderer/kajiya/inc/brdf_lut.glsl>
+#include <renderer/kajiya/inc/layered_brdf.glsl>
 // #include <utilities/gpu/blue_noise.glsl>
 // #include <utilities/gpu/atmosphere.glsl>
 // #include <utilities/gpu/sun.glsl>
 // #include <utilities/gpu/lights/triangle.glsl>
-#include "../inc/reservoir.glsl"
+#include <renderer/kajiya/inc/reservoir.glsl>
 // #include "../ircache/bindings.hlsl"
 #include "near_field_settings.glsl"
 #include "rtdgi_restir_settings.glsl"
 #include "rtdgi_common.glsl"
 
-#include "../inc/safety.glsl"
-#include "../inc/downscale.glsl"
-#include "../inc/rt.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
+#include <renderer/kajiya/inc/downscale.glsl>
+#include <renderer/kajiya/inc/rt.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(RtdgiRestirTemporalComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

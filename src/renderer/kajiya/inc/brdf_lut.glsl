@@ -1,6 +1,6 @@
 #pragma once
 
-#include "brdf.glsl"
+#include <renderer/kajiya/inc/brdf.glsl>
 
 struct SpecularBrdfEnergyPreservation {
     vec3 preintegrated_reflection;

@@ -1,6 +1,6 @@
 #include <renderer/kajiya/shadow_denoiser.inl>
-#include "inc/safety.glsl"
-#include "inc/color.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
+#include <renderer/kajiya/inc/color.glsl>
 
 #if ShadowBitPackComputeShader
 
@@ -37,7 +37,7 @@ void main() {
 
 #if ShadowTemporalFilterComputeShader
 
-#include "inc/camera.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(ShadowTemporalFilterComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

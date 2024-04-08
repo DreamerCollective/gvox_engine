@@ -2,7 +2,7 @@
 #extension GL_EXT_ray_tracing : enable
 
 #include "trace_secondary.inl"
-#include "rt.glsl"
+#include <renderer/rt.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(TraceShadowRtPush, push)
 

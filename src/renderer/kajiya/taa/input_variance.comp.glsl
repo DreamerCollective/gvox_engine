@@ -1,11 +1,11 @@
-#include "../inc/samplers.hlsl"
-#include "../inc/uv.hlsl"
-#include "../inc/color.hlsl"
-#include "../inc/image.hlsl"
-#include "../inc/frame_constants.hlsl"
-#include "../inc/hash.hlsl"
-#include "../inc/unjitter_taa.hlsl"
-#include "../inc/soft_color_clamp.hlsl"
+#include <renderer/kajiya/inc/samplers.hlsl>
+#include <renderer/kajiya/inc/uv.hlsl>
+#include <renderer/kajiya/inc/color.hlsl>
+#include <renderer/kajiya/inc/image.hlsl>
+#include <renderer/kajiya/inc/frame_constants.hlsl>
+#include <renderer/kajiya/inc/hash.hlsl>
+#include <renderer/kajiya/inc/unjitter_taa.hlsl>
+#include <renderer/kajiya/inc/soft_color_clamp.hlsl>
 #include "taa_common.hlsl"
 
 [[vk::binding(0)]] Texture2D<vec4> input_tex;

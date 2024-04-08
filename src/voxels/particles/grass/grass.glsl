@@ -4,7 +4,7 @@
 #include <g_samplers>
 #include <g_value_noise>
 
-#include "../particle.glsl"
+#include <voxels/particles/particle.glsl>
 
 vec2 grass_get_rot_offset(in out GrassStrand self, float time) {
     FractalNoiseConfig noise_conf = FractalNoiseConfig(

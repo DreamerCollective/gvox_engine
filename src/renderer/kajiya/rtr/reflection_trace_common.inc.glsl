@@ -40,8 +40,8 @@ const bool USE_SCREEN_GI_REPROJECTION = true;
 #endif
 
 #include <renderer/atmosphere/sky.glsl>
-#include "../inc/ray_cone.glsl"
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/ray_cone.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 struct RtrTraceResult {
     vec3 total_radiance;

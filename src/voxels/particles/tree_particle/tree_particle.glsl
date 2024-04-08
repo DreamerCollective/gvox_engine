@@ -3,7 +3,7 @@
 #include <utilities/gpu/noise.glsl>
 #include <g_samplers>
 
-#include "../particle.glsl"
+#include <voxels/particles/particle.glsl>
 
 vec3 get_tree_particle_offset(in out TreeParticle self, uint index, uint i, float time) {
     // Voxel voxel = unpack_voxel(self.packed_voxel);

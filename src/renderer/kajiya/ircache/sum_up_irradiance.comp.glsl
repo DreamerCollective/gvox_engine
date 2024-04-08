@@ -1,9 +1,9 @@
 #include <renderer/kajiya/ircache.inl>
 #include <utilities/gpu/normal.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/sh.glsl"
-#include "../inc/quasi_random.glsl"
-#include "../inc/reservoir.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/sh.glsl>
+#include <renderer/kajiya/inc/quasi_random.glsl>
+#include <renderer/kajiya/inc/reservoir.glsl>
 #include "ircache_constants.glsl"
 #include "ircache_sampler_common.inc.glsl"
 

@@ -2,10 +2,10 @@
 
 #include <g_samplers>
 #include <utilities/gpu/math.glsl>
-#include "../inc/color.glsl"
+#include <renderer/kajiya/inc/color.glsl>
 #include "taa_common.glsl"
 
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(TaaFilterInputComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

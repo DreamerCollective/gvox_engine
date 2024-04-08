@@ -1,11 +1,11 @@
 #include <renderer/kajiya/taa.inl>
 
 #include <g_samplers>
-#include "../inc/camera.glsl"
-#include "../inc/color.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/color.glsl>
 #include "taa_common.glsl"
 
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(TaaFilterHistoryComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

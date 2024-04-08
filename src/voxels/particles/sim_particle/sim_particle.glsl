@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../particle.glsl"
+#include <voxels/particles/particle.glsl>
 
 void particle_spawn(in out SimulatedVoxelParticle self, uint index, daxa_BufferPtr(GpuInput) gpu_input) {
     rand_seed(index);

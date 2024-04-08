@@ -2,8 +2,8 @@
 
 #include <application/input.inl>
 
-#include "stars.glsl"
-#include "sky_utils.glsl"
+#include <renderer/atmosphere/stars.glsl>
+#include <renderer/atmosphere/sky_utils.glsl>
 
 #include <g_samplers>
 

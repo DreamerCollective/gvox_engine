@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common.inl"
+#include <voxels/particles/common.inl>
 
 #define MAX_FIRE_PARTICLES (1 << 16)
 

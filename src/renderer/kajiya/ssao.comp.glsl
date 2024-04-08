@@ -1,12 +1,12 @@
 #include <renderer/kajiya/ssao.inl>
 
-#include "inc/camera.glsl"
-#include "inc/safety.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/safety.glsl>
 
 #if SsaoComputeShader
 
 #include <voxels/voxels.glsl>
-#include "inc/downscale.glsl"
+#include <renderer/kajiya/inc/downscale.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(SsaoComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

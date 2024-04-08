@@ -1,7 +1,7 @@
 #pragma once
 
-#include "color/srgb.glsl"
-#include "color/ycbcr.glsl"
+#include <renderer/kajiya/inc/color/srgb.glsl>
+#include <renderer/kajiya/inc/color/ycbcr.glsl>
 
 vec3 uint_id_to_sRGB(uint id) {
     return vec3(id % 11, id % 29, id % 7) / vec3(10, 28, 6);

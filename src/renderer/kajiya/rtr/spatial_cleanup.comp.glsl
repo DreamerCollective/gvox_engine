@@ -2,13 +2,13 @@
 
 #include <renderer/kajiya/inc/camera.glsl>
 // #include <utilities/gpu/uv.glsl>
-// #include "../inc/frame_constants.glsl"
-#include "../inc/working_color_space.glsl"
+// #include <renderer/kajiya/inc/frame_constants.glsl>
+#include <renderer/kajiya/inc/working_color_space.glsl>
 #define linear_to_working linear_rgb_to_crunched_rgb
 #define working_to_linear crunched_rgb_to_linear_rgb
 // #define linear_to_working linear_rgb_to_linear_rgb
 // #define working_to_linear linear_rgb_to_linear_rgb
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(RtrSpatialFilterComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;

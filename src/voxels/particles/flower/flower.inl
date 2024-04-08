@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common.inl"
+#include <voxels/particles/common.inl>
 
 #define FLOWER_TYPE_NONE 0
 #define FLOWER_TYPE_DANDELION 1

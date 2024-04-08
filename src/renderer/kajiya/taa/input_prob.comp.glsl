@@ -1,9 +1,9 @@
 #include <renderer/kajiya/taa.inl>
 
 #include <g_samplers>
-#include "../inc/camera.glsl"
-#include "../inc/color.glsl"
-#include "../inc/image.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/color.glsl>
+#include <renderer/kajiya/inc/image.glsl>
 #include "taa_common.glsl"
 
 DAXA_DECL_PUSH_CONSTANT(TaaInputProbComputePush, push)
@@ -53,7 +53,7 @@ FetchResult do_fetch(ivec2 px) {
     return FetchResult(s, vel);
 }
 
-#include "../inc/prefetch.glsl"
+#include <renderer/kajiya/inc/prefetch.glsl>
 
 layout(local_size_x = PREFETCH_GROUP_SIZE, local_size_y = PREFETCH_GROUP_SIZE, local_size_z = 1) in;
 void main() {

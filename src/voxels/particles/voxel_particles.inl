@@ -6,12 +6,12 @@
 
 #include <renderer/core.inl>
 
-#include "common.inl"
-#include "grass/grass.inl"
-#include "flower/flower.inl"
-#include "sim_particle/sim_particle.inl"
-#include "tree_particle/tree_particle.inl"
-#include "fire_particle/fire_particle.inl"
+#include <voxels/particles/common.inl>
+#include <voxels/particles/grass/grass.inl>
+#include <voxels/particles/flower/flower.inl>
+#include <voxels/particles/sim_particle/sim_particle.inl>
+#include <voxels/particles/tree_particle/tree_particle.inl>
+#include <voxels/particles/fire_particle/fire_particle.inl>
 
 DAXA_DECL_TASK_HEAD_BEGIN(VoxelParticlePerframeCompute)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)

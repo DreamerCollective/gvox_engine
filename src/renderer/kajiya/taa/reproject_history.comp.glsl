@@ -1,9 +1,9 @@
 #include <renderer/kajiya/taa.inl>
 
 #include <g_samplers>
-#include "../inc/camera.glsl"
-#include "../inc/color.glsl"
-#include "../inc/image.glsl"
+#include <renderer/kajiya/inc/camera.glsl>
+#include <renderer/kajiya/inc/color.glsl>
+#include <renderer/kajiya/inc/image.glsl>
 #include "taa_common.glsl"
 
 DAXA_DECL_PUSH_CONSTANT(TaaReprojectComputePush, push)

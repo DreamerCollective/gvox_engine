@@ -1,7 +1,7 @@
 #include "sky.inl"
 
-#include "sky_utils.glsl"
-#include "atmosphere.glsl"
+#include <renderer/atmosphere/sky_utils.glsl>
+#include <renderer/atmosphere/atmosphere.glsl>
 #include <g_samplers>
 
 #if SkyTransmittanceComputeShader

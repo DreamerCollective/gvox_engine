@@ -2,7 +2,7 @@
 
 #include <utilities/gpu/math.glsl>
 #include <g_samplers>
-#include "../inc/safety.glsl"
+#include <renderer/kajiya/inc/safety.glsl>
 
 DAXA_DECL_PUSH_CONSTANT(TaaProbFilter2ComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
