@@ -20,7 +20,6 @@
 DAXA_DECL_PUSH_CONSTANT(RtrValidateComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
-IRCACHE_USE_BUFFERS_PUSH_USES()
 daxa_ImageViewIndex gbuffer_tex = push.uses.gbuffer_tex;
 daxa_ImageViewIndex depth_tex = push.uses.depth_tex;
 daxa_ImageViewIndex rtdgi_tex = push.uses.rtdgi_tex;

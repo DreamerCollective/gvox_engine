@@ -65,20 +65,6 @@ DAXA_DECL_BUFFER_PTR(IrcacheBuffers)
     DAXA_TH_BUFFER(SHADER_TYPE##_SHADER_READ_WRITE_CONCURRENT, ircache_reposition_proposal_buf)    \
     DAXA_TH_BUFFER(SHADER_TYPE##_SHADER_READ_WRITE_CONCURRENT, ircache_reposition_proposal_count_buf)
 
-#define IRCACHE_USE_BUFFERS_PUSH_USES()                                                                                      \
-    daxa_BufferPtr(IrcacheBuffers) ircache_buffers = push.uses.ircache_buffers;                                              \
-    daxa_RWBufferPtr(IrcacheMetadata) ircache_meta_buf = deref(ircache_buffers).ircache_meta_buf;                            \
-    daxa_RWBufferPtr(IrcacheCell) ircache_grid_meta_buf = deref(ircache_buffers).ircache_grid_meta_buf;                      \
-    daxa_RWBufferPtr(daxa_u32) ircache_entry_cell_buf = deref(ircache_buffers).ircache_entry_cell_buf;                       \
-    daxa_RWBufferPtr(VertexPacked) ircache_spatial_buf = deref(ircache_buffers).ircache_spatial_buf;                         \
-    daxa_RWBufferPtr(daxa_f32vec4) ircache_irradiance_buf = deref(ircache_buffers).ircache_irradiance_buf;                   \
-    daxa_RWBufferPtr(IrcacheAux) ircache_aux_buf = deref(ircache_buffers).ircache_aux_buf;                                   \
-    daxa_RWBufferPtr(daxa_u32) ircache_life_buf = deref(ircache_buffers).ircache_life_buf;                                   \
-    daxa_RWBufferPtr(daxa_u32) ircache_pool_buf = deref(ircache_buffers).ircache_pool_buf;                                   \
-    daxa_RWBufferPtr(daxa_u32) ircache_entry_indirection_buf = deref(ircache_buffers).ircache_entry_indirection_buf;         \
-    daxa_RWBufferPtr(VertexPacked) ircache_reposition_proposal_buf = deref(ircache_buffers).ircache_reposition_proposal_buf; \
-    daxa_RWBufferPtr(daxa_u32) ircache_reposition_proposal_count_buf = deref(ircache_buffers).ircache_reposition_proposal_count_buf;
-
 #define IRCACHE_BUFFER_USES_ASSIGN(TaskHeadName, ircache)                                                                            \
     daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_buffers, ircache.ircache_buffers}},                                     \
         daxa::TaskViewVariant{std::pair{TaskHeadName::AT.ircache_meta_buf, ircache.ircache_meta_buf}},                               \

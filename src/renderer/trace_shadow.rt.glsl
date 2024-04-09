@@ -2,9 +2,8 @@
 #extension GL_EXT_ray_tracing : enable
 
 #include "trace_secondary.inl"
-#include <renderer/rt.glsl>
-
 DAXA_DECL_PUSH_CONSTANT(TraceShadowRtPush, push)
+#include <renderer/rt.glsl>
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
 
@@ -74,21 +73,4 @@ void main() {
 
     imageStore(daxa_image2D(push.uses.shadow_mask), ivec2(gl_LaunchIDEXT.xy), vec4(hit, 0, 0, 0));
 }
-
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    intersect_voxels(push.uses.geometry_pointers, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    prd = pack_ray_payload(gl_InstanceCustomIndexEXT, gl_PrimitiveID, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_MISS
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-void main() {
-    prd = miss_ray_payload();
-}
-#endif // DAXA_SHADER_STAGE
+#endif

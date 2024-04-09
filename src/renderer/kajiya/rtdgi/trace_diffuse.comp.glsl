@@ -33,8 +33,6 @@ daxa_ImageViewIndex blue_noise_vec2 = push.uses.blue_noise_vec2;
 daxa_ImageViewIndex sky_cube_tex = push.uses.sky_cube_tex;
 daxa_ImageViewIndex transmittance_lut = push.uses.transmittance_lut;
 VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
-IRCACHE_USE_BUFFERS_PUSH_USES()
-daxa_ImageViewIndex ray_orig_history_tex = push.uses.ray_orig_history_tex;
 daxa_ImageViewIndex candidate_irradiance_out_tex = push.uses.candidate_irradiance_out_tex;
 daxa_ImageViewIndex candidate_normal_out_tex = push.uses.candidate_normal_out_tex;
 daxa_ImageViewIndex candidate_hit_out_tex = push.uses.candidate_hit_out_tex;

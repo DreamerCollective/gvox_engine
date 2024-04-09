@@ -5,10 +5,9 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#include <renderer/rt.glsl>
-
 #include <renderer/kajiya/ircache.inl>
 DAXA_DECL_PUSH_CONSTANT(IrcacheTraceAccessRtPush, push)
+#include <renderer/rt.glsl>
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
 
@@ -83,21 +82,4 @@ void main() {
         deref(advance(ircache_aux_buf, entry_idx)).reservoirs[octa_idx].xy = as_raw(r);
     }
 }
-
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    intersect_voxels(push.uses.geometry_pointers, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    prd = pack_ray_payload(gl_InstanceCustomIndexEXT, gl_PrimitiveID, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_MISS
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-void main() {
-    prd = miss_ray_payload();
-}
-#endif // DAXA_SHADER_STAGE
+#endif

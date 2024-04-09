@@ -71,7 +71,6 @@ DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, CUBE, sky_cube_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, transmittance_lut)
 VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
 IRCACHE_USE_BUFFERS(COMPUTE)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, ray_orig_history_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_irradiance_out_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_normal_out_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_hit_out_tex)
@@ -97,7 +96,6 @@ DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, reprojection_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_3D, blue_noise_vec2)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, CUBE, sky_cube_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, transmittance_lut)
-DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, ray_orig_history_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_irradiance_out_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_normal_out_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_hit_out_tex)
@@ -636,7 +634,6 @@ struct RtdgiRenderer {
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.transmittance_lut, transmittance_lut}},
                         VOXELS_BUFFER_USES_ASSIGN(RtdgiTraceCompute, voxel_buffers),
                         IRCACHE_BUFFER_USES_ASSIGN(RtdgiTraceCompute, ircache),
-                        daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.ray_orig_history_tex, ray_orig_history_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.candidate_irradiance_out_tex, candidate_radiance_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.candidate_normal_out_tex, candidate_normal_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.candidate_hit_out_tex, candidate_hit_tex}},
@@ -669,7 +666,6 @@ struct RtdgiRenderer {
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.sky_cube_tex, sky_cube}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.transmittance_lut, transmittance_lut}},
-                        daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.ray_orig_history_tex, ray_orig_history_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.candidate_irradiance_out_tex, candidate_radiance_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.candidate_normal_out_tex, candidate_normal_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.candidate_hit_out_tex, candidate_hit_tex}},

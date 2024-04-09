@@ -1,10 +1,9 @@
 #define DAXA_RAY_TRACING 1
 #extension GL_EXT_ray_tracing : enable
 
-#include <renderer/rt.glsl>
-
 #include <renderer/kajiya/rtdgi.inl>
 DAXA_DECL_PUSH_CONSTANT(RtdgiValidateRtPush, push)
+#include <renderer/rt.glsl>
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
 
@@ -31,20 +30,6 @@ layout(location = PAYLOAD_LOC) rayPayloadEXT RayPayload prd;
 // #define IRCACHE_LOOKUP_DONT_KEEP_ALIVE
 // #define IRCACHE_LOOKUP_KEEP_ALIVE_PROB 0.125
 
-daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
-daxa_ImageViewIndex half_view_normal_tex = push.uses.half_view_normal_tex;
-daxa_ImageViewIndex depth_tex = push.uses.depth_tex;
-daxa_ImageViewIndex reprojected_gi_tex = push.uses.reprojected_gi_tex;
-daxa_ImageViewIndex reservoir_tex = push.uses.reservoir_tex;
-daxa_ImageViewIndex reservoir_ray_history_tex = push.uses.reservoir_ray_history_tex;
-daxa_ImageViewIndex blue_noise_vec2 = push.uses.blue_noise_vec2;
-IRCACHE_USE_BUFFERS_PUSH_USES()
-daxa_ImageViewIndex sky_cube_tex = push.uses.sky_cube_tex;
-daxa_ImageViewIndex transmittance_lut = push.uses.transmittance_lut;
-daxa_ImageViewIndex irradiance_history_tex = push.uses.irradiance_history_tex;
-daxa_ImageViewIndex ray_orig_history_tex = push.uses.ray_orig_history_tex;
-daxa_ImageViewIndex rt_history_invalidity_out_tex = push.uses.rt_history_invalidity_out_tex;
-
 #include "../ircache/lookup.glsl"
 // #include "../wrc/lookup.hlsl"
 #include "candidate_ray_dir.glsl"
@@ -55,11 +40,13 @@ daxa_ImageViewIndex rt_history_invalidity_out_tex = push.uses.rt_history_invalid
 
 void main() {
     const uvec2 px = gl_LaunchIDEXT.xy;
+#undef HALFRES_SUBSAMPLE_INDEX
+#define HALFRES_SUBSAMPLE_INDEX (deref(push.uses.gpu_input).frame_index & 3)
     const ivec2 hi_px_offset = ivec2(HALFRES_SUBSAMPLE_OFFSET);
     const uvec2 hi_px = px * 2 + hi_px_offset;
 
-    if (0.0 == safeTexelFetch(depth_tex, ivec2(hi_px), 0).r) {
-        safeImageStore(rt_history_invalidity_out_tex, ivec2(px), vec4(1.0));
+    if (0.0 == safeTexelFetch(push.uses.depth_tex, ivec2(hi_px), 0).r) {
+        safeImageStore(push.uses.rt_history_invalidity_out_tex, ivec2(px), vec4(1.0));
         return;
     }
 
@@ -67,17 +54,17 @@ void main() {
 
     // NOTE(grundlett): Here we fix the ray origin for when the player causes the world to wrap.
     // We technically don't need to write out if the world does not wrap in this frame, but IDC for now.
-    vec3 prev_ray_orig = safeImageLoad(ray_orig_history_tex, ivec2(px)).xyz;
-    prev_ray_orig -= vec3(deref(gpu_input).player.player_unit_offset - deref(gpu_input).player.prev_unit_offset);
-    safeImageStore(ray_orig_history_tex, ivec2(px), vec4(prev_ray_orig, 0));
+    vec3 prev_ray_orig = safeImageLoad(push.uses.ray_orig_history_tex, ivec2(px)).xyz;
+    prev_ray_orig -= vec3(deref(push.uses.gpu_input).player.player_unit_offset - deref(push.uses.gpu_input).player.prev_unit_offset);
+    safeImageStore(push.uses.ray_orig_history_tex, ivec2(px), vec4(prev_ray_orig, 0));
 
-    if (RESTIR_USE_PATH_VALIDATION && is_rtdgi_validation_frame(deref(gpu_input).frame_index)) {
-        const vec3 normal_vs = safeTexelFetch(half_view_normal_tex, ivec2(px), 0).xyz;
-        const vec3 normal_ws = direction_view_to_world(gpu_input, normal_vs);
+    if (RESTIR_USE_PATH_VALIDATION && is_rtdgi_validation_frame(deref(push.uses.gpu_input).frame_index)) {
+        const vec3 normal_vs = safeTexelFetch(push.uses.half_view_normal_tex, ivec2(px), 0).xyz;
+        const vec3 normal_ws = direction_view_to_world(push.uses.gpu_input, normal_vs);
 
-        const vec3 prev_ray_delta = safeTexelFetch(reservoir_ray_history_tex, ivec2(px), 0).xyz;
+        const vec3 prev_ray_delta = safeTexelFetch(push.uses.reservoir_ray_history_tex, ivec2(px), 0).xyz;
 
-        const vec4 prev_radiance_packed = safeImageLoad(irradiance_history_tex, ivec2(px));
+        const vec4 prev_radiance_packed = safeImageLoad(push.uses.irradiance_history_tex, ivec2(px));
         const vec3 prev_radiance = max(0.0.xxx, prev_radiance_packed.rgb);
 
         RayDesc prev_ray;
@@ -101,13 +88,13 @@ void main() {
         // If the hit is different, it's possible that the previous origin point got obscured
         // by something, in which case we want M-clamping to take care of it instead.
         if (abs(result.hit_t - prev_hit_dist) / (prev_hit_dist + prev_hit_dist) < 0.2) {
-            safeImageStore(irradiance_history_tex, ivec2(px), vec4(new_radiance, prev_radiance_packed.a));
+            safeImageStore(push.uses.irradiance_history_tex, ivec2(px), vec4(new_radiance, prev_radiance_packed.a));
 
             // When we update the radiance, we might end up with fairly low probability
             // rays hitting the bright spots by chance. The PDF division compounded
             // by the increase in radiance causes fireflies to appear.
             // As a HACK, we will clamp that by scaling down the `M` factor then.
-            Reservoir1spp r = Reservoir1spp_from_raw(safeImageLoadU(reservoir_tex, ivec2(px)).xy);
+            Reservoir1spp r = Reservoir1spp_from_raw(safeImageLoadU(push.uses.reservoir_tex, ivec2(px)).xy);
             const float lum_old = sRGB_to_luminance(prev_radiance);
             const float lum_new = sRGB_to_luminance(new_radiance);
             r.M *= clamp(lum_old / max(1e-8, lum_new), 0.03, 1.0);
@@ -117,27 +104,10 @@ void main() {
             const float allowed_luminance_increment = 10.0;
             r.W *= clamp(lum_old / max(1e-8, lum_new) * allowed_luminance_increment, 0.01, 1.0);
 
-            safeImageStoreU(reservoir_tex, ivec2(px), uvec4(as_raw(r), 0, 0));
+            safeImageStoreU(push.uses.reservoir_tex, ivec2(px), uvec4(as_raw(r), 0, 0));
         }
     }
 
-    safeImageStore(rt_history_invalidity_out_tex, ivec2(px), vec4(invalidity, 0, 0, 0));
+    safeImageStore(push.uses.rt_history_invalidity_out_tex, ivec2(px), vec4(invalidity, 0, 0, 0));
 }
-
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    intersect_voxels(push.uses.geometry_pointers, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-hitAttributeEXT HitAttribute hit_attrib;
-void main() {
-    prd = pack_ray_payload(gl_InstanceCustomIndexEXT, gl_PrimitiveID, hit_attrib);
-}
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_MISS
-layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-void main() {
-    prd = miss_ray_payload();
-}
-#endif // DAXA_SHADER_STAGE
+#endif

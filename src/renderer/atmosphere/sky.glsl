@@ -128,7 +128,10 @@ vec3 sky_radiance_in_direction(daxa_BufferPtr(GpuInput) gpu_input, daxa_ImageVie
 }
 
 // Returns just the radiance from the sun in that direction
-vec3 sun_radiance_in_direction(daxa_BufferPtr(GpuInput) gpu_input, daxa_ImageViewIndex transmittance_lut, vec3 nrm) {
+vec3 sun_radiance_in_direction(
+    daxa_BufferPtr(GpuInput) gpu_input, 
+    daxa_ImageViewIndex transmittance_lut, 
+    vec3 nrm) {
     const vec3 world_camera_position = sky_space_camera_position(gpu_input);
     const vec3 sun_direction = deref(gpu_input).sky_settings.sun_direction;
 

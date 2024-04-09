@@ -30,7 +30,7 @@ daxa_ImageViewIndex reservoir_tex = push.uses.reservoir_tex;
 daxa_ImageViewIndex reservoir_ray_history_tex = push.uses.reservoir_ray_history_tex;
 daxa_ImageViewIndex blue_noise_vec2 = push.uses.blue_noise_vec2;
 VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
-IRCACHE_USE_BUFFERS_PUSH_USES()
+
 daxa_ImageViewIndex sky_cube_tex = push.uses.sky_cube_tex;
 daxa_ImageViewIndex transmittance_lut = push.uses.transmittance_lut;
 daxa_ImageViewIndex irradiance_history_tex = push.uses.irradiance_history_tex;

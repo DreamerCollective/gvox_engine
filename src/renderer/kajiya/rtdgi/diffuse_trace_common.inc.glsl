@@ -18,7 +18,7 @@ const bool USE_LIGHTS = true;
 const float SKY_DIST = 1e4;
 
 vec3 sample_environment_light(vec3 dir) {
-    return texture(daxa_samplerCube(sky_cube_tex, g_sampler_llr), dir).rgb;
+    return texture(daxa_samplerCube(push.uses.sky_cube_tex, g_sampler_llr), dir).rgb;
 }
 
 uvec2 reservoir_payload_to_px(uint payload) {
@@ -72,8 +72,8 @@ TraceResult do_the_thing(uvec2 px, vec3 normal_ws, inout uint rng, RayDesc outgo
 
     const float reflected_cone_spread_angle = 0.03;
     const RayCone ray_cone = propagate(
-        pixel_ray_cone_from_image_height(gpu_input, push.gbuffer_tex_size.y * 0.5),
-        reflected_cone_spread_angle, length(outgoing_ray.Origin - get_eye_position(gpu_input)));
+        pixel_ray_cone_from_image_height(push.uses.gpu_input, push.gbuffer_tex_size.y * 0.5),
+        reflected_cone_spread_angle, length(outgoing_ray.Origin - get_eye_position(push.uses.gpu_input)));
 
     GbufferRaytrace primary_hit_ = GbufferRaytrace_with_ray(outgoing_ray);
     primary_hit_ = with_cone(primary_hit_, ray_cone);
@@ -91,9 +91,9 @@ TraceResult do_the_thing(uvec2 px, vec3 normal_ws, inout uint rng, RayDesc outgo
         hit_normal_ws = gbuffer.normal;
 
         // Project the sample into clip space, and check if it's on-screen
-        const vec3 primary_hit_cs = position_world_to_sample(gpu_input, primary_hit.position);
+        const vec3 primary_hit_cs = position_world_to_sample(push.uses.gpu_input, primary_hit.position);
         const vec2 primary_hit_uv = cs_to_uv(primary_hit_cs.xy);
-        const float primary_hit_screen_depth = textureLod(daxa_sampler2D(depth_tex, g_sampler_nnc), primary_hit_uv, 0).r;
+        const float primary_hit_screen_depth = textureLod(daxa_sampler2D(push.uses.depth_tex, g_sampler_nnc), primary_hit_uv, 0).r;
         // const GbufferDataPacked primary_hit_screen_gbuffer = GbufferDataPacked::from_uint4(asuint(gbuffer_tex[ivec2(primary_hit_uv * gbuffer_tex_size.xy)]));
         // const vec3 primary_hit_screen_normal_ws = primary_hit_screen_gbuffer.unpack_normal();
         bool is_on_screen = true && all(lessThan(abs(primary_hit_cs.xy), vec2(1.0))) && inverse_depth_relative_diff(primary_hit_cs.z, primary_hit_screen_depth) < 5e-3
@@ -106,7 +106,7 @@ TraceResult do_the_thing(uvec2 px, vec3 normal_ws, inout uint rng, RayDesc outgo
         vec4 reprojected_radiance = vec4(0);
         if (is_on_screen) {
             reprojected_radiance =
-                textureLod(daxa_sampler2D(reprojected_gi_tex, g_sampler_nnc), primary_hit_uv, 0) * deref(gpu_input).pre_exposure_delta;
+                textureLod(daxa_sampler2D(push.uses.reprojected_gi_tex, g_sampler_nnc), primary_hit_uv, 0) * deref(push.uses.gpu_input).pre_exposure_delta;
 
             // Check if the temporal reprojection is valid.
             is_on_screen = reprojected_radiance.w > 0;
@@ -118,12 +118,12 @@ TraceResult do_the_thing(uvec2 px, vec3 normal_ws, inout uint rng, RayDesc outgo
         const LayeredBrdf brdf = LayeredBrdf_from_gbuffer_ndotv(gbuffer, wo.z);
 
         // Sun
-        vec3 sun_radiance = sun_radiance_in_direction(gpu_input, transmittance_lut, SUN_DIRECTION);
+        vec3 sun_radiance = sun_radiance_in_direction(push.uses.gpu_input, push.uses.transmittance_lut, deref(push.uses.gpu_input).sky_settings.sun_direction);
 
         if (any(greaterThan(sun_radiance, vec3(0)))) {
             const vec3 to_light_norm = sample_sun_direction(
-                gpu_input,
-                blue_noise_for_pixel(blue_noise_vec2, px, rng).xy,
+                push.uses.gpu_input,
+                blue_noise_for_pixel(push.uses.blue_noise_vec2, px, rng).xy,
                 USE_SOFT_SHADOWS);
 
             const bool is_shadowed = rt_is_shadowed(new_ray(

@@ -13,7 +13,6 @@ daxa_ImageViewIndex ibl_cube = push.uses.ibl_cube;
 daxa_ImageViewIndex sky_lut = push.uses.sky_lut;
 daxa_ImageViewIndex transmittance_lut = push.uses.transmittance_lut;
 daxa_ImageViewIndex ae_lut = push.uses.ae_lut;
-// IRCACHE_USE_BUFFERS_PUSH_USES()
 
 #include <renderer/kajiya/inc/rt.glsl>
 #include <renderer/atmosphere/sky.glsl>
