@@ -282,7 +282,7 @@ void try_spawn_grass(in out Voxel voxel, vec3 nrm) {
         float v = flower_noise_val.x * (1.0 / 0.875);
 
         // voxel.color = pow(vec3(85, 166, 78) / 255.0 * 0.5, vec3(2.2));
-        voxel.color = hsv2rgb(vec3(0.11 + v * 0.15 + fract(r2 * 426.7) * 0.05, 0.7, 0.2));
+        voxel.color = hsv2rgb(vec3(0.11 + v * 0.15 + fract(r2 * 426.7) * 0.05, 0.7, 0.4));
         voxel.material_type = 1;
         voxel.roughness = 1.0;
         voxel.normal = nrm;
@@ -330,7 +330,7 @@ void brushgen_world_terrain(in out Voxel voxel) {
         if (SHOULD_COLOR_WORLD) {
             float r = good_rand(-val);
             if (val > -0.05 && upwards > 0.25) {
-                voxel.color = vec3(0.13, 0.09, 0.05);
+                voxel.color = vec3(0.26, 0.18, 0.10);
                 if (r < 0.5) {
                     voxel.color.r *= 0.5;
                     voxel.color.g *= 0.5;
@@ -343,7 +343,7 @@ void brushgen_world_terrain(in out Voxel voxel) {
                     voxel.roughness = 0.95;
                 }
             } else if (val < -0.01 && val > -0.07 && upwards > 0.2) {
-                voxel.color = vec3(0.17, 0.15, 0.07);
+                voxel.color = vec3(0.34, 0.30, 0.14);
                 if (r < 0.5) {
                     voxel.color.r *= 0.75;
                     voxel.color.g *= 0.75;
@@ -351,11 +351,11 @@ void brushgen_world_terrain(in out Voxel voxel) {
                 }
                 voxel.roughness = 0.85;
             } else {
-                voxel.color = vec3(0.11, 0.10, 0.07);
+                voxel.color = vec3(0.33, 0.30, 0.21);
                 voxel.roughness = 0.9;
             }
         } else {
-            voxel.color = vec3(0.25);
+            voxel.color = vec3(0.75);
         }
     } else if (true) {
         vec4 grass_val4 = terrain_noise(voxel_pos - vec3(0, 0, VOXEL_SIZE));
@@ -608,7 +608,7 @@ void brush_torch(in out Voxel voxel) {
 
     if (sd_base < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.9;
         voxel.normal = vec3(0, 0, 1);
     } else if (sd_flame < 0) {
@@ -691,7 +691,7 @@ void brush_maple_tree(in out Voxel voxel) {
 
     if (tree.wood < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
         voxel.normal = vec3(0, 0, 1);
     } else if (tree.leaves * 5.0 + leaf_rand * 15.0 < 0) {
@@ -718,12 +718,12 @@ void brush_spruce_tree(in out Voxel voxel) {
 
     if (tree.wood < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
         voxel.normal = vec3(0, 0, 1);
     } else if (tree.leaves + leaf_rand * 0.05 < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.28, .4, .15) * 0.5;
+        voxel.color = vec3(.14, .2, .07);
         voxel.roughness = 0.95;
         voxel.normal = tree.leaves_nrm;
         if (dot(voxel.normal, vec3(0, 0, 1)) - leaf_rand * 1.0 > 0.0) {
@@ -803,7 +803,7 @@ void brush_spruce_tree_big(in out Voxel voxel) {
 
     if (tree.wood < 0) {
         voxel.material_type = 1;
-        voxel.color = vec3(.68, .4, .15) * 0.16;
+        voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
         voxel.normal = vec3(0, 0, 1);
     } else if (tree.leaves * 5.0 < 0) {

@@ -76,6 +76,7 @@ DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_nor
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_hit_out_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, rt_history_invalidity_in_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, rt_history_invalidity_out_tex)
+DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, rtdgi_debug_image)
 DAXA_DECL_TASK_HEAD_END
 struct RtdgiTraceComputePush {
     daxa_f32vec4 gbuffer_tex_size;
@@ -101,6 +102,7 @@ DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, candidate_hit_out_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_SAMPLED, REGULAR_2D, rt_history_invalidity_in_tex)
 DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, rt_history_invalidity_out_tex)
+DAXA_TH_IMAGE_INDEX(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, rtdgi_debug_image)
 DAXA_DECL_TASK_HEAD_END
 struct RtdgiTraceRtPush {
     daxa_f32vec4 gbuffer_tex_size;
@@ -188,7 +190,6 @@ DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, candidate_hit_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, temporal_reservoir_packed_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, bounced_radiance_input_tex)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, irradiance_output_tex)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, rtdgi_debug_image)
 DAXA_DECL_TASK_HEAD_END
 struct RtdgiRestirResolveComputePush {
     daxa_f32vec4 gbuffer_tex_size;
@@ -547,6 +548,12 @@ struct RtdgiRenderer {
             gpu_context.frame_task_graph.use_persistent_image(reservoir_history_tex);
             clear_task_images(gpu_context.device, std::array{reservoir_output_tex, reservoir_history_tex});
 
+            auto rtdgi_debug_image = gpu_context.frame_task_graph.create_transient_image({
+                .format = daxa::Format::R32G32B32A32_SFLOAT,
+                .size = {gpu_context.render_resolution.x, gpu_context.render_resolution.y, 1},
+                .name = "rtdgi_debug_image",
+            });
+
             auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
 
             if (!use_hwrt || true) {
@@ -620,7 +627,7 @@ struct RtdgiRenderer {
                 .name = "rt_history_validity_input_tex",
             });
 
-            if (!use_hwrt) {
+            if (!use_hwrt || true) {
                 gpu_context.add(ComputeTask<RtdgiTraceCompute::Task, RtdgiTraceComputePush, NoTaskInfo>{
                     .source = daxa::ShaderFile{"kajiya/rtdgi/trace_diffuse.comp.glsl"},
                     .views = std::array{
@@ -639,6 +646,7 @@ struct RtdgiRenderer {
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.candidate_hit_out_tex, candidate_hit_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.rt_history_invalidity_in_tex, rt_history_validity_pre_input_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.rt_history_invalidity_out_tex, rt_history_validity_input_tex}},
+                        daxa::TaskViewVariant{std::pair{RtdgiTraceCompute::AT.rtdgi_debug_image, rtdgi_debug_image}},
                     },
                     .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, RtdgiTraceComputePush &push, NoTaskInfo const &) {
                         auto const image_info = ti.device.info_image(ti.get(RtdgiTraceCompute::AT.depth_tex).ids[0]).value();
@@ -671,6 +679,7 @@ struct RtdgiRenderer {
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.candidate_hit_out_tex, candidate_hit_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.rt_history_invalidity_in_tex, rt_history_validity_pre_input_tex}},
                         daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.rt_history_invalidity_out_tex, rt_history_validity_input_tex}},
+                        daxa::TaskViewVariant{std::pair{RtdgiTraceRt::AT.rtdgi_debug_image, rtdgi_debug_image}},
                     },
                     .callback_ = [](daxa::TaskInterface const &ti, daxa::RayTracingPipeline &pipeline, RtdgiTraceRtPush &push, NoTaskInfo const &) {
                         auto const image_info = ti.device.info_image(ti.get(RtdgiTraceRt::AT.depth_tex).ids[0]).value();
@@ -682,6 +691,7 @@ struct RtdgiRenderer {
                     },
                 });
             }
+            debug_utils::DebugDisplay::add_pass({.name = "rtdgi debug", .task_image_id = rtdgi_debug_image, .type = DEBUG_IMAGE_TYPE_RTDGI_DEBUG});
 
             debug_utils::DebugDisplay::add_pass({.name = "rtdgi trace", .task_image_id = candidate_radiance_tex, .type = DEBUG_IMAGE_TYPE_DEFAULT});
 
@@ -841,12 +851,6 @@ struct RtdgiRenderer {
                 .name = "irradiance_output_tex",
             });
 
-            auto rtdgi_debug_image = gpu_context.frame_task_graph.create_transient_image({
-                .format = daxa::Format::R32G32B32A32_SFLOAT,
-                .size = {gpu_context.render_resolution.x, gpu_context.render_resolution.y, 1},
-                .name = "rtdgi_debug_image",
-            });
-
             gpu_context.add(ComputeTask<RtdgiRestirResolveCompute::Task, RtdgiRestirResolveComputePush, NoTaskInfo>{
                 .source = daxa::ShaderFile{"kajiya/rtdgi/restir_resolve.comp.glsl"},
                 .views = std::array{
@@ -864,7 +868,6 @@ struct RtdgiRenderer {
                     daxa::TaskViewVariant{std::pair{RtdgiRestirResolveCompute::AT.temporal_reservoir_packed_tex, temporal_reservoir_packed_tex}},
                     daxa::TaskViewVariant{std::pair{RtdgiRestirResolveCompute::AT.bounced_radiance_input_tex, bounced_radiance_input_tex}},
                     daxa::TaskViewVariant{std::pair{RtdgiRestirResolveCompute::AT.irradiance_output_tex, irradiance_output_tex}},
-                    daxa::TaskViewVariant{std::pair{RtdgiRestirResolveCompute::AT.rtdgi_debug_image, rtdgi_debug_image}},
                 },
                 .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, RtdgiRestirResolveComputePush &push, NoTaskInfo const &) {
                     auto const image_info = ti.device.info_image(ti.get(RtdgiRestirResolveCompute::AT.gbuffer_tex).ids[0]).value();
@@ -876,7 +879,6 @@ struct RtdgiRenderer {
                     ti.recorder.dispatch({(out_image_info.size.x + 7) / 8, (out_image_info.size.y + 7) / 8});
                 },
             });
-            debug_utils::DebugDisplay::add_pass({.name = "rtdgi debug", .task_image_id = rtdgi_debug_image, .type = DEBUG_IMAGE_TYPE_RTDGI_DEBUG});
 
             irradiance_tex = irradiance_output_tex;
             debug_utils::DebugDisplay::add_pass({.name = "restir resolve", .task_image_id = irradiance_tex, .type = DEBUG_IMAGE_TYPE_DEFAULT});

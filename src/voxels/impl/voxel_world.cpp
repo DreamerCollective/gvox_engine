@@ -335,6 +335,10 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_transforms.task_resource);
 }
 
+static constexpr auto chunk_index(int xi, int yi, int zi) {
+    return xi + yi * CHUNKS_PER_AXIS + zi * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
+}
+
 void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, VoxelWorldOutput const &gpu_output) {
     buffers.voxel_malloc.check_for_realloc(device, gpu_output.voxel_malloc_output.current_element_count);
     // buffers.voxel_leaf_chunk_malloc.check_for_realloc(device, gpu_output.voxel_leaf_chunk_output.current_element_count);
@@ -412,6 +416,13 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
             copied_bytes += sizeof(chunk_update);
             auto &voxel_chunk = voxel_chunks[chunk_update.info.chunk_index];
 
+            bool px_face_updated = false;
+            bool py_face_updated = false;
+            bool pz_face_updated = false;
+            bool nx_face_updated = false;
+            bool ny_face_updated = false;
+            bool nz_face_updated = false;
+
             for (uint32_t palette_region_i = 0; palette_region_i < PALETTES_PER_CHUNK; ++palette_region_i) {
                 auto const &palette_header = chunk_update.palette_headers[palette_region_i];
                 auto &palette_chunk = voxel_chunk.palette_chunks[palette_region_i];
@@ -430,6 +441,7 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 } else {
                     // no blob
                 }
+                auto prev_has_air = palette_chunk.has_air;
                 palette_chunk.has_air = false;
                 if (compressed_size != 0) {
                     palette_chunk.blob_ptr = new uint32_t[compressed_size];
@@ -447,18 +459,76 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                         palette_chunk.has_air = true;
                     }
                 }
+
+                if (palette_chunk.has_air != prev_has_air) {
+                    // updated palette chunk
+                    auto palette_region_xi = (palette_region_i / 1) % PALETTES_PER_CHUNK_AXIS;
+                    auto palette_region_yi = (palette_region_i / PALETTES_PER_CHUNK_AXIS) % PALETTES_PER_CHUNK_AXIS;
+                    auto palette_region_zi = (palette_region_i / PALETTES_PER_CHUNK_AXIS / PALETTES_PER_CHUNK_AXIS);
+
+                    if (palette_region_xi == 0)
+                        nx_face_updated = true;
+                    if (palette_region_yi == 0)
+                        ny_face_updated = true;
+                    if (palette_region_zi == 0)
+                        nz_face_updated = true;
+                    if (palette_region_xi == PALETTES_PER_CHUNK_AXIS - 1)
+                        px_face_updated = true;
+                    if (palette_region_yi == PALETTES_PER_CHUNK_AXIS - 1)
+                        py_face_updated = true;
+                    if (palette_region_zi == PALETTES_PER_CHUNK_AXIS - 1)
+                        pz_face_updated = true;
+                }
             }
+
+            {
+                auto chunk_xi = int(chunk_update.info.chunk_index / 1) % CHUNKS_PER_AXIS;
+                auto chunk_yi = int(chunk_update.info.chunk_index / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
+                auto chunk_zi = int(chunk_update.info.chunk_index / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS);
+
+                int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+                int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+                int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+
+                // mark neighbors as dirty
+                if (nx_face_updated && chunk_xi_ws != 0) {
+                    auto chunk_nxi = (chunk_xi - 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_nxi, chunk_yi, chunk_zi)].needs_blas_rebuild = true;
+                }
+                if (ny_face_updated && chunk_yi_ws != 0) {
+                    auto chunk_nyi = (chunk_yi - 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_xi, chunk_nyi, chunk_zi)].needs_blas_rebuild = true;
+                }
+                if (nz_face_updated && chunk_zi_ws != 0) {
+                    auto chunk_nzi = (chunk_zi - 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_xi, chunk_yi, chunk_nzi)].needs_blas_rebuild = true;
+                }
+                if (px_face_updated && chunk_xi_ws != (CHUNKS_PER_AXIS - 1)) {
+                    auto chunk_nxi = (chunk_xi + 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_nxi, chunk_yi, chunk_zi)].needs_blas_rebuild = true;
+                }
+                if (py_face_updated && chunk_yi_ws != (CHUNKS_PER_AXIS - 1)) {
+                    auto chunk_nyi = (chunk_yi + 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_xi, chunk_nyi, chunk_zi)].needs_blas_rebuild = true;
+                }
+                if (pz_face_updated && chunk_zi_ws != (CHUNKS_PER_AXIS - 1)) {
+                    auto chunk_nzi = (chunk_zi + 1) & (CHUNKS_PER_AXIS - 1);
+                    voxel_chunks[chunk_index(chunk_xi, chunk_yi, chunk_nzi)].needs_blas_rebuild = true;
+                }
+            }
+
+            voxel_chunk.needs_blas_rebuild = true;
         }
 
         // if (copied_bytes > 0) {
         //     debug_utils::Console::add_log(fmt::format("{} MB copied", double(copied_bytes) / 1'000'000.0));
         // }
 
-        for (auto const &chunk_update : chunk_updates) {
-            if (chunk_update.info.flags != 1) {
+        for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
+            auto &voxel_chunk = voxel_chunks[chunk_i];
+            if (!voxel_chunk.needs_blas_rebuild) {
                 continue;
             }
-            auto &voxel_chunk = voxel_chunks[chunk_update.info.chunk_index];
             auto &blas_chunk = voxel_chunk.blas_chunk;
             blas_chunk.blas_geoms.clear();
             blas_chunk.attrib_bricks.clear();
@@ -474,13 +544,29 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                                 int32_t nxi = ni == 0 ? nj : 0;
                                 int32_t nyi = ni == 1 ? nj : 0;
                                 int32_t nzi = ni == 2 ? nj : 0;
+                                CpuPaletteChunk const *temp_palette_chunk = nullptr;
                                 if ((nxi == -1 && palette_xi == 0) || (nxi == 1 && palette_xi == PALETTES_PER_CHUNK_AXIS - 1) ||
                                     (nyi == -1 && palette_yi == 0) || (nyi == 1 && palette_yi == PALETTES_PER_CHUNK_AXIS - 1) ||
                                     (nzi == -1 && palette_zi == 0) || (nzi == 1 && palette_zi == PALETTES_PER_CHUNK_AXIS - 1)) {
-                                    continue;
+                                    auto neighbor_chunk_xi = (int32_t(chunk_i % CHUNKS_PER_AXIS) + nxi) & (CHUNKS_PER_AXIS - 1);
+                                    auto neighbor_chunk_yi = (int32_t((chunk_i / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS) + nyi) & (CHUNKS_PER_AXIS - 1);
+                                    auto neighbor_chunk_zi = (int32_t(chunk_i / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS) + nzi) & (CHUNKS_PER_AXIS - 1);
+                                    int32_t chunk_xi_ws = (int32_t(neighbor_chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+                                    int32_t chunk_yi_ws = (int32_t(neighbor_chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+                                    int32_t chunk_zi_ws = (int32_t(neighbor_chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+                                    if ((nxi == -1 && chunk_xi_ws == (CHUNKS_PER_AXIS - 1)) || (nxi == 1 && chunk_xi_ws == 0) ||
+                                        (nyi == -1 && chunk_yi_ws == (CHUNKS_PER_AXIS - 1)) || (nyi == 1 && chunk_yi_ws == 0) ||
+                                        (nzi == -1 && chunk_zi_ws == (CHUNKS_PER_AXIS - 1)) || (nzi == 1 && chunk_zi_ws == 0))
+                                        continue;
+                                    auto &neighbor_chunk = voxel_chunks[chunk_index(neighbor_chunk_xi, neighbor_chunk_yi, neighbor_chunk_zi)];
+                                    auto neighbor_palette_xi = (palette_xi + nxi) & (PALETTES_PER_CHUNK_AXIS - 1);
+                                    auto neighbor_palette_yi = (palette_yi + nyi) & (PALETTES_PER_CHUNK_AXIS - 1);
+                                    auto neighbor_palette_zi = (palette_zi + nzi) & (PALETTES_PER_CHUNK_AXIS - 1);
+                                    temp_palette_chunk = &neighbor_chunk.palette_chunks[neighbor_palette_xi + neighbor_palette_yi * PALETTES_PER_CHUNK_AXIS + neighbor_palette_zi * PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS];
+                                } else {
+                                    temp_palette_chunk = &voxel_chunk.palette_chunks[palette_region_i + nxi + nyi * PALETTES_PER_CHUNK_AXIS + nzi * PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS];
                                 }
-                                auto &temp_palette_chunk = voxel_chunk.palette_chunks[palette_region_i + nxi + nyi * PALETTES_PER_CHUNK_AXIS + nzi * PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS];
-                                if (temp_palette_chunk.has_air) {
+                                if (temp_palette_chunk->has_air) {
                                     neighbors_air = true;
                                 }
                             }
@@ -529,11 +615,11 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
         auto attr_pointers_host_ptr = device.get_host_address_as<daxa::DeviceAddress>(staging_blas_attr_pointers.resource_id).value();
         auto acceleration_structure_scratch_offset_alignment = device.properties().acceleration_structure_properties.value().min_acceleration_structure_scratch_offset_alignment;
         auto tracked_blases = std::vector<daxa::BlasId>{};
-        for (auto const &chunk_update : chunk_updates) {
-            if (chunk_update.info.flags != 1) {
+        for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
+            auto &voxel_chunk = voxel_chunks[chunk_i];
+            if (!voxel_chunk.needs_blas_rebuild) {
                 continue;
             }
-            auto &voxel_chunk = voxel_chunks[chunk_update.info.chunk_index];
             auto &blas_chunk = voxel_chunk.blas_chunk;
             if (blas_chunk.blas_geoms.empty()) {
                 continue;
@@ -548,7 +634,7 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                     .name = "attr_buffer",
                 });
                 auto attr_dev_ptr = device.get_device_address(blas_chunk.attr_buffer).value();
-                attr_pointers_host_ptr[chunk_update.info.chunk_index] = attr_dev_ptr;
+                attr_pointers_host_ptr[chunk_i] = attr_dev_ptr;
             }
 
             if (!blas_chunk.geom_buffer.is_empty()) {
@@ -559,7 +645,7 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 .name = "geom_buffer",
             });
             auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
-            geom_pointers_host_ptr[chunk_update.info.chunk_index] = geom_dev_ptr;
+            geom_pointers_host_ptr[chunk_i] = geom_dev_ptr;
             auto geometry = std::array{
                 daxa::BlasAabbGeometryInfo{
                     .data = geom_dev_ptr,
@@ -600,7 +686,6 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
             });
             blas_chunk.blas_build_info.dst_blas = blas_chunk.blas;
             tracked_blases.push_back(blas_chunk.blas);
-            voxel_chunk.needs_blas_rebuild = true;
         }
 
         for (uint64_t blas_i = 0; blas_i < voxel_chunks.size(); ++blas_i) {
@@ -636,13 +721,13 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
             uint32_t chunk_yi = (chunk_i / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
             uint32_t chunk_zi = (chunk_i / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
             auto const CHUNK_WS_SIZE = float(CHUNK_SIZE * VOXEL_SIZE);
-            int32_t chunk_xi_ws = int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE));
-            int32_t chunk_yi_ws = int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE));
-            int32_t chunk_zi_ws = int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE));
+            int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+            int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+            int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
             blas_chunk.position = {
-                (chunk_xi_ws & (CHUNKS_PER_AXIS - 1)) * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.x & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
-                (chunk_yi_ws & (CHUNKS_PER_AXIS - 1)) * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.y & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
-                (chunk_zi_ws & (CHUNKS_PER_AXIS - 1)) * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.z & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_xi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.x & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_yi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.y & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_zi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.z & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
             };
             blas_transforms_host_ptr[blas_i] = blas_chunk.position;
             blas_instances[blas_i] = daxa_BlasInstanceData{
@@ -691,11 +776,12 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 });
 
                 // NOTE(grundlett): Hacky way of not needing to sync on these buffers...
-                for (auto const &chunk_update : chunk_updates) {
-                    if (chunk_update.info.flags != 1) {
+
+                for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
+                    auto &voxel_chunk = voxel_chunks[chunk_i];
+                    if (!voxel_chunk.needs_blas_rebuild) {
                         continue;
                     }
-                    auto &voxel_chunk = voxel_chunks[chunk_update.info.chunk_index];
                     auto &blas_chunk = voxel_chunk.blas_chunk;
                     if (blas_chunk.blas_geoms.empty()) {
                         continue;
@@ -737,7 +823,6 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                 for (auto &voxel_chunk : voxel_chunks) {
                     auto &blas_chunk = voxel_chunk.blas_chunk;
                     if (!blas_chunk.blas_geoms.empty() && voxel_chunk.needs_blas_rebuild) {
-                        voxel_chunk.needs_blas_rebuild = false;
                         auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
                         auto geometry = std::array{
                             daxa::BlasAabbGeometryInfo{
@@ -752,6 +837,7 @@ void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input, Vo
                             .blas_build_infos = std::array{blas_chunk.blas_build_info},
                         });
                     }
+                    voxel_chunk.needs_blas_rebuild = false;
                 }
             },
             .name = "blas build",

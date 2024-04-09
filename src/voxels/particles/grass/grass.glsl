@@ -38,7 +38,7 @@ ParticleVertex get_grass_vertex(daxa_BufferPtr(GpuInput) gpu_input, daxa_BufferP
 
     Voxel voxel = unpack_voxel(self.packed_voxel);
     voxel.color = rgb2hsv(voxel.color);
-    voxel.color[2] *= float(i + 1);
+    voxel.color[2] = mix(voxel.color[2], 1.0, float(i) * 0.25);
     voxel.color = hsv2rgb(voxel.color);
 
     ParticleVertex result;

@@ -36,7 +36,6 @@ daxa_ImageViewIndex candidate_hit_tex = push.uses.candidate_hit_tex;
 daxa_ImageViewIndex temporal_reservoir_packed_tex = push.uses.temporal_reservoir_packed_tex;
 daxa_ImageViewIndex bounced_radiance_input_tex = push.uses.bounced_radiance_input_tex;
 daxa_ImageViewIndex irradiance_output_tex = push.uses.irradiance_output_tex;
-daxa_ImageViewIndex rtdgi_debug_image = push.uses.rtdgi_debug_image;
 
 float ggx_ndf_unnorm(float a2, float cos_theta) {
     float denom_sqrt = cos_theta * cos_theta * (a2 - 1.0) + 1.0;
@@ -221,8 +220,6 @@ void main() {
                 w_sum += w;
             }
         }
-
-        // safeImageStore(rtdgi_debug_image, ivec2(px), vec4(vec3(weighted_irradiance), 1));
 
         total_irradiance += weighted_irradiance / max(1e-20, w_sum);
     }

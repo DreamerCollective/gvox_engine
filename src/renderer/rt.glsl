@@ -75,16 +75,16 @@ PackedVoxel unpack_ray_payload(
 
         vec3 v = deref(advance(blas_transforms, blas_id));
         Aabb aabb = deref(advance(blas_geoms, brick_id)).aabb;
-        aabb.minimum += v;
-        aabb.maximum += v;
         ivec3 mapPos = ivec3(voxel_index % BLAS_BRICK_SIZE, (voxel_index / BLAS_BRICK_SIZE) % BLAS_BRICK_SIZE, voxel_index / BLAS_BRICK_SIZE / BLAS_BRICK_SIZE);
         aabb.minimum += vec3(mapPos) * VOXEL_SIZE;
         aabb.maximum = aabb.minimum + VOXEL_SIZE;
+        ray.origin -= v;
 #if PER_VOXEL_NORMALS
         hit_pos = ray.origin + ray.direction * hitAabb_midpoint(aabb, ray);
 #else
         hit_pos = ray.origin + ray.direction * hitAabb(aabb, ray);
 #endif
+        hit_pos += v;
         // hit_pos = (blas_to_world * vec4(hit_pos, 1)).xyz;
     }
     return deref(advance(brick_attribs, brick_id)).packed_voxels[voxel_index];

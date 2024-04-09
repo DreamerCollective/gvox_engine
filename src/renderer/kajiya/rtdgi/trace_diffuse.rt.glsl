@@ -101,6 +101,7 @@ void main() {
         safeImageStore(push.uses.candidate_irradiance_out_tex, ivec2(px), vec4(result.out_value, rtr_encode_cos_theta_for_fp16(cos_theta)));
         safeImageStore(push.uses.candidate_hit_out_tex, ivec2(px), vec4(hit_offset_ws, result.pdf * select(is_rtdgi_tracing_frame(deref(push.uses.gpu_input).frame_index), 1, -1)));
         safeImageStore(push.uses.candidate_normal_out_tex, ivec2(px), vec4(direction_world_to_view(push.uses.gpu_input, result.hit_normal_ws), 0));
+        // safeImageStore(push.uses.rtdgi_debug_image, ivec2(px), vec4(vec3((outgoing_ray.Direction)), 1));
     }
     // } else {
     //     const vec4 reproj = reprojection_tex[hi_px];
