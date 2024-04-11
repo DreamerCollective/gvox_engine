@@ -33,6 +33,7 @@ struct Task : TaskHeadT {
 template <typename TaskHeadT, typename PushT, typename InfoT>
 struct Task<TaskHeadT, PushT, InfoT, AsyncManagedRayTracingPipeline> : TaskHeadT {
     daxa::ShaderSource source;
+    uint32_t max_ray_recursion_depth = 1;
     std::vector<daxa::ShaderDefine> extra_defines{};
     TaskHeadT::AttachmentViews views{};
     TaskCallback<TaskHeadT, PushT, InfoT, AsyncManagedRayTracingPipeline> *callback_{};

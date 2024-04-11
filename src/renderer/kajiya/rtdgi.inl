@@ -556,7 +556,7 @@ struct RtdgiRenderer {
 
             auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
 
-            if (!use_hwrt || true) {
+            if (!use_hwrt) {
                 gpu_context.add(ComputeTask<RtdgiValidateCompute::Task, RtdgiValidateComputePush, NoTaskInfo>{
                     .source = daxa::ShaderFile{"kajiya/rtdgi/diffuse_validate.comp.glsl"},
                     .views = std::array{
@@ -627,7 +627,7 @@ struct RtdgiRenderer {
                 .name = "rt_history_validity_input_tex",
             });
 
-            if (!use_hwrt || true) {
+            if (!use_hwrt) {
                 gpu_context.add(ComputeTask<RtdgiTraceCompute::Task, RtdgiTraceComputePush, NoTaskInfo>{
                     .source = daxa::ShaderFile{"kajiya/rtdgi/trace_diffuse.comp.glsl"},
                     .views = std::array{

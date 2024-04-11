@@ -45,6 +45,7 @@ daxa_RWBufferPtr(uint) ircache_entry_cell_buf = push.uses.ircache_entry_cell_buf
 
 // Sample straight from the `ircache_aux_buf` instead of the SH.
 #define IRCACHE_LOOKUP_PRECISE
+#define NO_IRCACHE_POINTER_DEFINES
 #include "lookup.glsl"
 
 #include "ircache_sampler_common.inc.glsl"

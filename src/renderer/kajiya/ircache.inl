@@ -139,6 +139,7 @@ DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(IrcacheMetadata),
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_RWBufferPtr(daxa_u32vec4), dispatch_args)
 DAXA_DECL_TASK_HEAD_END
 struct IrcachePrepareTraceDispatchComputePush {
+    daxa_u32 use_hwrt;
     DAXA_TH_BLOB(IrcachePrepareTraceDispatchCompute, uses)
 };
 DAXA_DECL_TASK_HEAD_BEGIN(IrcacheResetCompute)

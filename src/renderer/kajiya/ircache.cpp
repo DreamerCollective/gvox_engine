@@ -9,17 +9,25 @@ auto IrcacheRenderState::trace_irradiance(GpuContext &gpu_context, VoxelWorldBuf
         .name = "ircache.trace_indirect_args_buf",
     });
 
-    gpu_context.add(ComputeTask<IrcachePrepareTraceDispatchCompute::Task, IrcachePrepareTraceDispatchComputePush, NoTaskInfo>{
+    auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
+
+    struct IrcachePrepareTraceDispatchComputeTaskInfo {
+        bool use_hwrt;
+    };
+
+    gpu_context.add(ComputeTask<IrcachePrepareTraceDispatchCompute::Task, IrcachePrepareTraceDispatchComputePush, IrcachePrepareTraceDispatchComputeTaskInfo>{
         .source = daxa::ShaderFile{"kajiya/ircache/prepare_trace_dispatch_args.comp.glsl"},
         .views = std::array{
             daxa::TaskViewVariant{std::pair{IrcachePrepareTraceDispatchCompute::AT.ircache_meta_buf, this->ircache_meta_buf}},
             daxa::TaskViewVariant{std::pair{IrcachePrepareTraceDispatchCompute::AT.dispatch_args, indirect_args_buf}},
         },
-        .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, IrcachePrepareTraceDispatchComputePush &push, NoTaskInfo const &) {
+        .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, IrcachePrepareTraceDispatchComputePush &push, IrcachePrepareTraceDispatchComputeTaskInfo const &info) {
             ti.recorder.set_pipeline(pipeline);
+            push.use_hwrt = uint32_t(info.use_hwrt);
             set_push_constant(ti, push);
             ti.recorder.dispatch({1, 1, 1});
         },
+        .info = use_hwrt,
     });
 
     gpu_context.add(ComputeTask<IrcacheResetCompute::Task, IrcacheResetComputePush, NoTaskInfo>{
@@ -43,9 +51,7 @@ auto IrcacheRenderState::trace_irradiance(GpuContext &gpu_context, VoxelWorldBuf
         },
     });
 
-    auto use_hwrt = AppSettings::get<settings::Checkbox>("Graphics", "Use HWRT").value;
-
-    if (!use_hwrt || true) {
+    if (!use_hwrt) {
         gpu_context.add(ComputeTask<IrcacheTraceAccessCompute::Task, IrcacheTraceAccessComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ircache/trace_accessibility.comp.glsl"},
             .views = std::array{
@@ -93,7 +99,7 @@ auto IrcacheRenderState::trace_irradiance(GpuContext &gpu_context, VoxelWorldBuf
         });
     }
 
-    if (!use_hwrt || true) {
+    if (!use_hwrt) {
         gpu_context.add(ComputeTask<IrcacheValidateCompute::Task, IrcacheValidateComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ircache/ircache_validate.comp.glsl"},
             .views = std::array{
@@ -155,7 +161,7 @@ auto IrcacheRenderState::trace_irradiance(GpuContext &gpu_context, VoxelWorldBuf
         });
     }
 
-    if (!use_hwrt || true) {
+    if (!use_hwrt) {
         gpu_context.add(ComputeTask<TraceIrradianceCompute::Task, TraceIrradianceComputePush, NoTaskInfo>{
             .source = daxa::ShaderFile{"kajiya/ircache/trace_irradiance.comp.glsl"},
             .views = std::array{

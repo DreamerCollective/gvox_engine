@@ -140,6 +140,7 @@ struct GpuContext {
                                 .intersection_shader_index = 1,
                             },
                         },
+                        .max_ray_recursion_depth = task.max_ray_recursion_depth,
                         .push_constant_size = push_constant_size,
                         .name = std::string{TaskHeadT::name()},
                     })));
