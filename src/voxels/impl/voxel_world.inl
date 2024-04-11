@@ -130,6 +130,7 @@ struct VoxelWorld {
     void init_gpu_malloc(GpuContext &gpu_context);
     void record_startup(GpuContext &gpu_context);
     void begin_frame(daxa::Device &device, GpuInput const &gpu_input, VoxelWorldOutput const &gpu_output);
+    void update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &device, GpuInput const &gpu_input);
     void record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles);
 };
 
