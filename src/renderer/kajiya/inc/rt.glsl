@@ -95,20 +95,21 @@ GbufferRaytrace with_cull_back_faces(inout GbufferRaytrace self, bool v) {
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_RAYGEN
 GbufferPathVertex trace(GbufferRaytrace self) {
-    uint rayFlags = gl_RayFlagsNoneEXT;
-    uint cull_mask = 0xFF;
-    uint sbtRecordOffset = 0;
-    uint sbtRecordStride = 0;
-    uint missIndex = 0;
+    const uint ray_flags = gl_RayFlagsNoneEXT;
+    const uint cull_mask = 0xFF;
+    const uint sbt_record_offset = 0;
+    const uint sbt_record_stride = 0;
+    const uint miss_index = 0;
 
     traceRayEXT(
         accelerationStructureEXT(push.uses.tlas),
-        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
+        ray_flags, cull_mask, sbt_record_offset, sbt_record_stride, miss_index,
         self.ray.Origin, self.ray.TMin, self.ray.Direction, self.ray.TMax, PAYLOAD_LOC);
 
     if (prd.data1 != miss_ray_payload().data1) {
         vec3 world_pos = vec3(0);
-        PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(self.ray.Origin, self.ray.Direction), world_pos);
+        vec3 _unused_vel = vec3(0);
+        PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(self.ray.Origin, self.ray.Direction), world_pos, _unused_vel);
         Voxel voxel = unpack_voxel(voxel_data);
 
         GbufferPathVertex res;

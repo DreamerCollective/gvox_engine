@@ -100,6 +100,8 @@ uint bitwise_xor(uint a, uint b) {
     return a ^ b;
 }
 
+#include <utilities/gpu/random.glsl>
+
 void main() {
     vec2 g_buffer_scl = vec2(deref(gpu_input).render_res_scl) * vec2(deref(gpu_input).frame_dim) / vec2(deref(gpu_input).rounded_frame_dim);
     vec2 uv = vec2(gl_FragCoord.xy);
@@ -118,10 +120,11 @@ void main() {
     color = vec4(color_correct(final_color), 1.0);
 
     // Dithering:
-    // uvec2 ij = uvec2(uv * g_buffer_scl) & 7;
-    // uint i = ij[0], j = ij[1];
-    // float off = float(bit_reverse(bit_interleave(bitwise_xor(i, j), i))) / 256.0;
-    // color.rgb = floor(color.rgb * 32 + off) / 32;
+    uvec2 ij = uvec2(uv * g_buffer_scl) & 7;
+    uint i = ij[0], j = ij[1];
+    rand_seed(good_rand_hash(floatBitsToUint(uv)));
+    float off = rand(); // float(bit_reverse(bit_interleave(bitwise_xor(i, j), i))) / 256.0;
+    color.rgb = floor(color.rgb * 256 + off) / 256;
 }
 
 #endif

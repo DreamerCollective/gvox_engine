@@ -22,18 +22,18 @@ void main() {
     vec3 ray_d = ray_dir_ws(vrc);
     vec3 ray_o = ray_origin_ws(vrc);
 
-    uint rayFlags = gl_RayFlagsNoneEXT;
-    float tMin = 0.0001;
-    float tMax = 10000.0;
-    uint cull_mask = 0xFF;
-    uint sbtRecordOffset = 0;
-    uint sbtRecordStride = 0;
-    uint missIndex = 0;
+    const uint ray_flags = gl_RayFlagsNoneEXT;
+    const uint cull_mask = 0xFF & ~(0x01 & ~(deref(push.uses.gpu_input).player.flags & 1));
+    const uint sbt_record_offset = 0;
+    const uint sbt_record_stride = 0;
+    const uint miss_index = 0;
+    const float t_min = 0.0001;
+    const float t_max = 10000.0;
 
     traceRayEXT(
         accelerationStructureEXT(push.uses.tlas),
-        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
-        ray_o, tMin, ray_d, tMax, PAYLOAD_LOC);
+        ray_flags, cull_mask, sbt_record_offset, sbt_record_stride, miss_index,
+        ray_o, t_min, ray_d, t_max, PAYLOAD_LOC);
 
     if (prd.data1 == miss_ray_payload().data1) {
         imageStore(daxa_image2D(push.uses.depth_image_id), ivec2(gl_LaunchIDEXT.xy), vec4(0));
@@ -42,16 +42,17 @@ void main() {
     }
 
     vec3 world_pos = vec3(0);
+    vec3 vel_ws = vec3(0);
 
     uvec3 chunk_n = uvec3(CHUNKS_PER_AXIS);
-    PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(ray_o, ray_d), world_pos);
+    PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(ray_o, ray_d), world_pos, vel_ws);
     Voxel voxel = unpack_voxel(voxel_data);
 
     vec3 ws_nrm = voxel.normal;
     vec3 vs_nrm = (deref(push.uses.gpu_input).player.cam.world_to_view * vec4(ws_nrm, 0)).xyz;
     vec3 vs_velocity = vec3(0, 0, 0);
 
-    vec3 vel_ws = vec3(deref(push.uses.gpu_input).player.player_unit_offset - deref(push.uses.gpu_input).player.prev_unit_offset);
+    // vel_ws += vec3(deref(push.uses.gpu_input).player.player_unit_offset - deref(push.uses.gpu_input).player.prev_unit_offset);
 
     vec4 vs_pos = (deref(push.uses.gpu_input).player.cam.world_to_view * vec4(world_pos, 1));
     vec4 prev_vs_pos = (deref(push.uses.gpu_input).player.cam.world_to_view * vec4(world_pos + vel_ws, 1));

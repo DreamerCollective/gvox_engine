@@ -24,10 +24,12 @@ void player_fix_chunk_offset(Player &PLAYER) {
 }
 
 void player_startup(Player &PLAYER) {
-    if (((PLAYER.flags >> 0) & 0x1) != 0) {
-        return;
-    }
-    PLAYER.flags = 1 | (1 << 6);
+    // if (((PLAYER.flags >> 0) & 0x1) != 0) {
+    //     return;
+    // }
+
+    // toggle fly on
+    PLAYER.flags = (1u << 6);
 
     AppSettings::add<settings::InputFloat>({"Player", "Movement Speed", {.value = 1.5f}});
     AppSettings::add<settings::InputFloat>({"Player", "Sprint Multiplier", {.value = 3.0f}});
@@ -67,6 +69,12 @@ void player_startup(Player &PLAYER) {
     player_fix_chunk_offset(PLAYER);
 }
 
+void toggle_view(Player &PLAYER) {
+    PLAYER.flags = (PLAYER.flags & ~0xf) | ((PLAYER.flags & 0xf) + 1);
+    if ((PLAYER.flags & 0xf) > 1)
+        PLAYER.flags = (PLAYER.flags & ~0xf) | 0;
+}
+
 void toggle_fly(Player &PLAYER) {
     auto is_flying = (PLAYER.flags >> 6) & 0x1;
     auto toggled_last_frame = (PLAYER.flags >> 5) & 0x1;
@@ -74,6 +82,14 @@ void toggle_fly(Player &PLAYER) {
         PLAYER.flags = (PLAYER.flags & ~(0x1 << 6)) | ((1 - is_flying) << 6);
     }
     PLAYER.flags |= (0x1 << 5);
+}
+
+vec3 view_vec(Player &PLAYER) {
+    switch (PLAYER.flags & 0xf) {
+    case 0: return vec3(0, 0, -0.2f);
+    case 1: return (PLAYER.forward * sin(PLAYER.pitch) + vec3(0, 0, cos(-PLAYER.pitch))) * +2.0f;
+    default: return vec3(0, 0, 0);
+    }
 }
 
 #define EARTH_GRAV 9.807f
@@ -110,8 +126,17 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     auto lateral_h = view_to_world * glm::vec4(+1, 0, 0, 0);
     auto lateral = glm::normalize(glm::vec3(lateral_h.x, lateral_h.y, lateral_h.z));
 
-    PLAYER.forward = std::bit_cast<vec3>(forward);
-    PLAYER.lateral = std::bit_cast<vec3>(lateral);
+    PLAYER.forward = move_forward; // std::bit_cast<vec3>(forward);
+    PLAYER.lateral = move_lateral; // std::bit_cast<vec3>(lateral);
+
+    if (INPUT.actions[GAME_ACTION_CYCLE_VIEW] != 0) {
+        if ((PLAYER.flags & (1 << 4)) == 0) {
+            PLAYER.flags |= (1 << 4);
+            toggle_view(PLAYER);
+        }
+    } else {
+        PLAYER.flags &= ~(1u << 4);
+    }
 
     if (INPUT.actions[GAME_ACTION_TOGGLE_FLY] != 0) {
         toggle_fly(PLAYER);
@@ -121,8 +146,9 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     }
 
     const bool is_flying = ((PLAYER.flags >> 6) & 0x1) == 1;
-    const bool is_on_ground = ((PLAYER.flags >> 1) & 0x1) == 1;
-    const bool is_crouched = ((PLAYER.flags >> 2) & 0x1) == 1;
+    const bool is_crouched = ((PLAYER.flags >> 7) & 0x1) == 1;
+    const bool is_on_ground = ((PLAYER.flags >> 8) & 0x1) == 1;
+    const bool is_third_person = ((PLAYER.flags >> 0) & 0x1) == 1;
 
     const float speed = AppSettings::get<settings::InputFloat>("Player", "Movement Speed").value;
     const float sprint_speed = AppSettings::get<settings::InputFloat>("Player", "Sprint Multiplier").value;
@@ -169,13 +195,13 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
                 PLAYER.cam_pos_offset.z += height - crouch_height;
             }
             height = crouch_height;
-            PLAYER.flags |= (1u << 2);
+            PLAYER.flags |= (1u << 7);
         } else {
             if (is_crouched) {
                 PLAYER.pos.z += height - crouch_height;
                 PLAYER.cam_pos_offset.z -= height - crouch_height;
             }
-            PLAYER.flags &= ~(1u << 2);
+            PLAYER.flags &= ~(1u << 7);
         }
     }
 
@@ -186,7 +212,7 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     auto offset = vel * dt;
     PLAYER.pos = PLAYER.pos + offset;
 
-    PLAYER.flags &= ~(1u << 0x1);
+    PLAYER.flags &= ~(1u << 8);
     bool inside_terrain = false;
     int32_t voxel_height = height * VOXEL_SCL + 1;
 
@@ -239,7 +265,7 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
             PLAYER.pos.z = floor(PLAYER.pos.z * VOXEL_SCL) * VOXEL_SIZE;
             float new_z = PLAYER.pos.z;
             PLAYER.cam_pos_offset.z += current_z - new_z;
-            PLAYER.flags |= (1u << 0x1);
+            PLAYER.flags |= (1u << 8);
             PLAYER.vel.z = 0;
         } else {
             PLAYER.pos = PLAYER.pos - offset;
@@ -300,13 +326,13 @@ void player_perframe(PlayerInput &INPUT, Player &PLAYER, VoxelWorld &voxel_world
     if (new_cam_pos_offset_sign.z != cam_pos_offset_sign.z)
         PLAYER.cam_pos_offset.z = 0.0f;
 
-    auto cam_pos = PLAYER.pos + PLAYER.cam_pos_offset + vec3(0, 0, -0.2f);
+    auto cam_pos = PLAYER.pos + PLAYER.cam_pos_offset + view_vec(PLAYER);
 
     PLAYER.cam.view_to_sample = std::bit_cast<mat4>(clip_to_sample * std::bit_cast<glm::mat4>(PLAYER.cam.view_to_clip));
     PLAYER.cam.sample_to_view = std::bit_cast<mat4>(std::bit_cast<glm::mat4>(PLAYER.cam.clip_to_view) * sample_to_clip);
 
-    PLAYER.cam.view_to_world = std::bit_cast<mat4>(translation_matrix(cam_pos) * rotation_matrix(PLAYER.yaw, PLAYER.pitch, PLAYER.roll));
-    PLAYER.cam.world_to_view = std::bit_cast<mat4>(inv_rotation_matrix(PLAYER.yaw, PLAYER.pitch, PLAYER.roll) * translation_matrix(cam_pos * -1.0f));
+    PLAYER.cam.view_to_world = std::bit_cast<mat4>(translation_matrix(cam_pos) * rotation_matrix(PLAYER.yaw + float(M_PI) * is_third_person, PLAYER.pitch, PLAYER.roll));
+    PLAYER.cam.world_to_view = std::bit_cast<mat4>(inv_rotation_matrix(PLAYER.yaw + float(M_PI) * is_third_person, PLAYER.pitch, PLAYER.roll) * translation_matrix(cam_pos * -1.0f));
 
     PLAYER.cam.clip_to_prev_clip = std::bit_cast<mat4>(
         std::bit_cast<glm::mat4>(PLAYER.cam.prev_view_to_prev_clip) *

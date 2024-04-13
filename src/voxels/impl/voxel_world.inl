@@ -102,17 +102,17 @@ struct BlasChunk {
     daxa::BufferId geom_buffer;
     daxa::BufferId attr_buffer;
     daxa::BlasBuildInfo blas_build_info;
+    daxa_f32vec3 prev_position;
     daxa_f32vec3 position;
+    uint32_t cull_mask;
     std::vector<BlasGeom> blas_geoms;
     std::vector<VoxelBrickAttribs> attrib_bricks;
+    bool needs_blas_rebuild = true;
 };
 
 struct CpuVoxelChunk {
     std::array<CpuPaletteChunk, PALETTES_PER_CHUNK> palette_chunks{};
-    BlasChunk blas_chunk;
-
-    // TODO: Remove this
-    bool needs_blas_rebuild = true;
+    uint32_t blas_id;
 };
 
 struct VoxelWorld {
@@ -121,6 +121,10 @@ struct VoxelWorld {
     bool rt_initialized = false;
 
     std::vector<CpuVoxelChunk> voxel_chunks;
+
+    uint32_t test_entity_blas_id;
+
+    std::vector<BlasChunk> blas_chunks;
     daxa::TaskBlas task_chunk_blases;
     TemporalBuffer staging_blas_geom_pointers;
     TemporalBuffer staging_blas_attr_pointers;

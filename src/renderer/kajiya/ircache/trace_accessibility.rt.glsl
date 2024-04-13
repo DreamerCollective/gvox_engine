@@ -29,14 +29,14 @@ daxa_BufferPtr(uint) ircache_entry_indirection_buf = push.uses.ircache_entry_ind
 
 bool rt_is_shadowed(RayDesc ray) {
     ShadowRayPayload shadow_payload = ShadowRayPayload_new_hit();
-    uint rayFlags = gl_RayFlagsNoneEXT;
-    uint cull_mask = 0xFF;
-    uint sbtRecordOffset = 0;
-    uint sbtRecordStride = 0;
-    uint missIndex = 0;
+    const uint ray_flags = gl_RayFlagsNoneEXT;
+    const uint cull_mask = 0xFF;
+    const uint sbt_record_offset = 0;
+    const uint sbt_record_stride = 0;
+    const uint miss_index = 0;
     traceRayEXT(
         accelerationStructureEXT(push.uses.tlas),
-        rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
+        ray_flags, cull_mask, sbt_record_offset, sbt_record_stride, miss_index,
         ray.Origin, ray.TMin, ray.Direction, ray.TMax, PAYLOAD_LOC);
     shadow_payload.is_shadowed = prd.data1 != miss_ray_payload().data1;
     return shadow_payload.is_shadowed;

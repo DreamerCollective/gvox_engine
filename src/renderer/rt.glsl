@@ -61,8 +61,8 @@ float hitAabb_midpoint(const Aabb aabb, const Ray r) {
 PackedVoxel unpack_ray_payload(
     daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_pointers,
     daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)) attribute_pointers,
-    daxa_BufferPtr(daxa_f32vec3) blas_transforms,
-    RayPayload payload, Ray ray, out vec3 hit_pos) {
+    daxa_BufferPtr(VoxelBlasTransform) blas_transforms,
+    RayPayload payload, Ray ray, out vec3 hit_pos, out vec3 hit_vel) {
     uint blas_id = payload.data0;
     uint brick_id = payload.data1 / (BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * 2);
     uint voxel_index = payload.data1 & (BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * 2 - 1);
@@ -73,7 +73,9 @@ PackedVoxel unpack_ray_payload(
         // mat4 world_to_blas = mat4(m[0], m[1], m[2], vec4(0, 0, 0, 1));
         // mat4 blas_to_world = transpose(world_to_blas);
 
-        vec3 v = deref(advance(blas_transforms, blas_id));
+        hit_vel = deref(advance(blas_transforms, blas_id)).vel;
+
+        vec3 v = deref(advance(blas_transforms, blas_id)).pos;
         Aabb aabb = deref(advance(blas_geoms, brick_id)).aabb;
         ivec3 mapPos = ivec3(voxel_index % BLAS_BRICK_SIZE, (voxel_index / BLAS_BRICK_SIZE) % BLAS_BRICK_SIZE, voxel_index / BLAS_BRICK_SIZE / BLAS_BRICK_SIZE);
         aabb.minimum += vec3(mapPos) * VOXEL_SIZE;

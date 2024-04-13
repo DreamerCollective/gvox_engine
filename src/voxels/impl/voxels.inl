@@ -39,6 +39,11 @@ struct VoxelBrickAttribs {
 };
 DAXA_DECL_BUFFER_PTR(VoxelBrickAttribs)
 DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(VoxelBrickAttribs))
+struct VoxelBlasTransform {
+    daxa_f32vec3 pos;
+    daxa_f32vec3 vel;
+};
+DAXA_DECL_BUFFER_PTR(VoxelBlasTransform)
 
 struct VoxelLeafChunk {
     daxa_u32 flags;

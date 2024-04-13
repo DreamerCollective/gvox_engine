@@ -425,7 +425,6 @@ void VoxelApp::calc_vram_usage() {
     std::vector<debug_utils::DebugDisplay::GpuResourceInfo> &debug_gpu_resource_infos = debug_utils::DebugDisplay::s_instance->gpu_resource_infos;
 
     debug_gpu_resource_infos.clear();
-    ui_strings.clear();
 
     size_t result_size = 0;
 
@@ -479,6 +478,19 @@ void VoxelApp::calc_vram_usage() {
     buffer_size(voxel_world.buffers.voxel_malloc.element_buffer);
     buffer_size(voxel_world.buffers.voxel_malloc.available_element_stack_buffer);
     buffer_size(voxel_world.buffers.voxel_malloc.released_element_stack_buffer);
+
+    buffer_size(voxel_world.buffers.blas_attr_pointers.resource_id);
+    buffer_size(voxel_world.buffers.blas_geom_pointers.resource_id);
+    buffer_size(voxel_world.buffers.blas_transforms.resource_id);
+    buffer_size(voxel_world.buffers.voxel_chunks.resource_id);
+    buffer_size(voxel_world.buffers.voxel_globals.resource_id);
+    buffer_size(voxel_world.buffers.chunk_update_heap.resource_id);
+    buffer_size(voxel_world.buffers.chunk_updates.resource_id);
+    for (auto const &blas_chunk : voxel_world.blas_chunks) {
+        buffer_size(blas_chunk.blas_buffer);
+        buffer_size(blas_chunk.attr_buffer);
+        buffer_size(blas_chunk.geom_buffer);
+    }
 #endif
 
     {
@@ -493,5 +505,5 @@ void VoxelApp::calc_vram_usage() {
 
     needs_vram_calc = false;
 
-    ui_strings.push_back(fmt::format("Est. VRAM usage: {} MB", static_cast<float>(result_size) / 1000000));
+    debug_utils::DebugDisplay::set_debug_string("Est. VRAM usage", fmt::format("{} MB", static_cast<float>(result_size) / 1000000));
 }

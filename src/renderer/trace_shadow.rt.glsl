@@ -38,18 +38,18 @@ void main() {
 
     uint hit = 0;
     if (depth != 0.0 && dot(nrm, ray_dir) > 0) {
-        uint rayFlags = gl_RayFlagsNoneEXT;
-        float tMin = 0.0001;
-        float tMax = 10000.0;
-        uint cull_mask = 0xFF;
-        uint sbtRecordOffset = 0;
-        uint sbtRecordStride = 0;
-        uint missIndex = 0;
+        const uint ray_flags = gl_RayFlagsNoneEXT;
+        const uint cull_mask = 0xFF;
+        const uint sbt_record_offset = 0;
+        const uint sbt_record_stride = 0;
+        const uint miss_index = 0;
+        const float t_min = 0.0001;
+        const float t_max = 10000.0;
 
         traceRayEXT(
             accelerationStructureEXT(push.uses.tlas),
-            rayFlags, cull_mask, sbtRecordOffset, sbtRecordStride, missIndex,
-            ray_pos, tMin, ray_dir, tMax, PAYLOAD_LOC);
+            ray_flags, cull_mask, sbt_record_offset, sbt_record_stride, miss_index,
+            ray_pos, t_min, ray_dir, t_max, PAYLOAD_LOC);
 
         if (prd.data1 == miss_ray_payload().data1) {
             hit = 1;
