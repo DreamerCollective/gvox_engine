@@ -5,6 +5,7 @@
 #include <gvox/adapters/input/byte_buffer.h>
 #include <gvox/adapters/output/byte_buffer.h>
 #include <gvox/adapters/parse/voxlap.h>
+#include <gvox/adapters/parse/kvx.h>
 
 #include <voxels/gvox_model.inl>
 
@@ -511,6 +512,9 @@ auto VoxelModelLoader::load_gvox_data() -> GvoxModelData {
         .make_solid = 1,
         .is_ace_of_spades = 1,
     };
+    auto kvx_config = GvoxKvxParseAdapterConfig{
+        .mipmaplevels = 5,
+    };
     char const *gvox_model_type = "gvox_palette";
     if (gvox_model_path.has_extension()) {
         auto ext = gvox_model_path.extension();
@@ -529,6 +533,9 @@ auto VoxelModelLoader::load_gvox_data() -> GvoxModelData {
         } else if (ext == ".vxl") {
             i_config_ptr = &voxlap_config;
             gvox_model_type = "voxlap";
+        } else if (ext == ".kvx") {
+            i_config_ptr = &kvx_config;
+            gvox_model_type = "kvx";
         } else if (ext == ".gvox") {
             gvox_model_type = "gvox_palette";
         } else {

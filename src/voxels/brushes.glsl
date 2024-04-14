@@ -32,6 +32,7 @@ bool mandelbulb(in vec3 c, in out vec3 color) {
 }
 
 vec4 terrain_noise(vec3 p) {
+    p = p + vec3(-183, -110, -54);
     FractalNoiseConfig noise_conf = FractalNoiseConfig(
         /* .amplitude   = */ 1.0,
         /* .persistance = */ 0.2,
