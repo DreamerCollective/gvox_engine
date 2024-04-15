@@ -6,7 +6,6 @@ daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 daxa_RWBufferPtr(VoxelParticlesState) particles_state = push.uses.particles_state;
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FlowerAllocator, flower_allocator)
 daxa_RWBufferPtr(Flower) flowers = deref(flower_allocator).heap;
-VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
 daxa_RWBufferPtr(PackedParticleVertex) cube_rendered_particle_verts = push.uses.cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) shadow_cube_rendered_particle_verts = push.uses.shadow_cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses.splat_rendered_particle_verts;
@@ -15,6 +14,8 @@ daxa_RWBufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses
 #define UserIndexType uint
 #define UserMaxElementCount MAX_FLOWERS
 #include <utilities/allocator.glsl>
+
+#include <renderer/rt.glsl>
 
 void render_dandelion(uint particle_index) {
     uint height = 6;
@@ -130,23 +131,28 @@ void main() {
     if (self.type == FLOWER_TYPE_NONE) {
         return;
     }
+    if (self.flags < 63) {
+        ++self.flags;
+    }
 
     rand_seed(particle_index);
 
     Voxel flower_voxel = unpack_voxel(self.packed_voxel);
     uvec3 chunk_n = uvec3(CHUNKS_PER_AXIS);
     vec3 origin_ws = get_particle_worldspace_origin(gpu_input, self.origin);
-    PackedVoxel ground_voxel_data = sample_voxel_chunk(VOXELS_BUFFER_PTRS, chunk_n, origin_ws, vec3(0));
-    Voxel ground_voxel = unpack_voxel(ground_voxel_data);
 
-    PackedVoxel air_voxel_data = sample_voxel_chunk(VOXELS_BUFFER_PTRS, chunk_n, origin_ws + vec3(0, 0, VOXEL_SIZE), vec3(0));
-    Voxel air_voxel = unpack_voxel(air_voxel_data);
+    vec3 ray_pos = origin_ws + vec3(0, 0, VOXEL_SIZE);
+    vec3 ray_dir = normalize(vec3(0.0001, 0.0001, -1));
+
+    VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_STEPS, 1.0 * VOXEL_SIZE, 0.0, true), ray_pos);
+    Voxel ground_voxel = unpack_voxel(trace_result.voxel_data);
 
     // flower_voxel.normal = normalize(ground_voxel.normal + vec3(rot_offset, 1.0) * 0.05);
 
-    if (air_voxel.material_type != 0 ||
-        flower_voxel.material_type != ground_voxel.material_type ||
-        flower_voxel.roughness != ground_voxel.roughness) {
+    if ((flower_voxel.material_type != ground_voxel.material_type ||
+         flower_voxel.roughness != ground_voxel.roughness ||
+         trace_result.dist > 1.0 * VOXEL_SIZE) &&
+        self.flags > 8) {
         // free voxel, its spawner died.
         self.type = FLOWER_TYPE_NONE;
         deref(advance(flowers, particle_index)) = self;

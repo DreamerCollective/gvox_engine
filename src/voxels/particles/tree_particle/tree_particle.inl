@@ -17,7 +17,10 @@ DECL_SIMPLE_STATIC_ALLOCATOR(TreeParticleAllocator, TreeParticle, MAX_TREE_PARTI
 DAXA_DECL_TASK_HEAD_BEGIN(TreeParticleSimCompute)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
-VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)), attribute_pointers)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(VoxelBlasTransform), blas_transforms)
+DAXA_TH_TLAS_PTR(COMPUTE_SHADER_READ, tlas)
 SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, TreeParticleAllocator)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), cube_rendered_particle_verts)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(PackedParticleVertex), shadow_cube_rendered_particle_verts)
@@ -104,7 +107,10 @@ struct TreeParticles {
             .views = std::array{
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.gpu_input, gpu_context.task_input_buffer}},
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.particles_state, particles_state}},
-                VOXELS_BUFFER_USES_ASSIGN(TreeParticleSimCompute, voxel_world_buffers),
+                daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.geometry_pointers, voxel_world_buffers.blas_geom_pointers.task_resource}},
+                daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.attribute_pointers, voxel_world_buffers.blas_attr_pointers.task_resource}},
+                daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.blas_transforms, voxel_world_buffers.blas_transforms.task_resource}},
+                daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.tlas, voxel_world_buffers.task_tlas}},
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(TreeParticleSimCompute, TreeParticleAllocator, tree_particle_allocator),
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.cube_rendered_particle_verts, cube_rendered_particle_verts.task_resource}},
                 daxa::TaskViewVariant{std::pair{TreeParticleSimCompute::AT.shadow_cube_rendered_particle_verts, shadow_cube_rendered_particle_verts.task_resource}},

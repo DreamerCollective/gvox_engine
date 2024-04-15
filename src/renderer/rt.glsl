@@ -58,6 +58,20 @@ float hitAabb_midpoint(const Aabb aabb, const Ray r) {
     return (t0 + t1) * 0.5;
 }
 
+vec3 voxel_face_normal(vec3 center, Ray ray, in vec3 _invRayDir) {
+    ray.origin = ray.origin - center;
+    float winding = 1;
+    vec3 sgn = -sign(ray.direction);
+    // Distance to plane
+    vec3 d = VOXEL_SIZE * 0.5 * winding * sgn - ray.origin;
+    d *= _invRayDir;
+#define TEST(U, VW) (d.U >= 0.0) && all(lessThan(abs(ray.origin.VW + ray.direction.VW * d.U), vec2(VOXEL_SIZE * 0.5)))
+    bvec3 test = bvec3(TEST(x, yz), TEST(y, zx), TEST(z, xy));
+    sgn = test.x ? vec3(sgn.x, 0, 0) : (test.y ? vec3(0, sgn.y, 0) : vec3(0, 0, test.z ? sgn.z : 0));
+#undef TEST
+    return sgn;
+}
+
 PackedVoxel unpack_ray_payload(
     daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_pointers,
     daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)) attribute_pointers,
@@ -106,7 +120,6 @@ hitAttributeEXT HitAttribute hit_attrib;
 #extension GL_EXT_ray_query : enable
 rayQueryEXT ray_query;
 HitAttribute hit_attrib;
-float t_nearest;
 #endif
 
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION || DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_COMPUTE
@@ -135,7 +148,7 @@ void intersect_voxel_brick(daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_poi
     daxa_BufferPtr(BlasGeom) blas_geoms = deref(advance(geometry_pointers, INSTANCE_CUSTOM_INDEX));
     Aabb aabb = deref(advance(blas_geoms, PRIMITIVE_INDEX)).aabb;
     tHit = hitAabb(aabb, ray);
-    const float BIAS = uintBitsToFloat(0x3f800040);
+    const float BIAS = uintBitsToFloat(0x3f800040); // uintBitsToFloat(0x3f800040) == 1.00000762939453125
     ray.origin += ray.direction * tHit * BIAS;
     if (tHit >= 0) {
         ivec3 bmin = ivec3(floor(aabb.minimum * VOXEL_SCL));
@@ -153,9 +166,9 @@ void intersect_voxel_brick(daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_poi
                 hit_attrib = pack_hit_attribute(mapPos);
                 reportIntersectionEXT(tHit, 0);
 #else
-                if (tHit < t_nearest) {
+                if (tHit < rayQueryGetIntersectionTEXT(ray_query, true)) {
                     hit_attrib = pack_hit_attribute(mapPos);
-                    t_nearest = tHit;
+                    rayQueryGenerateIntersectionEXT(ray_query, tHit);
                 }
 #endif
                 break;
@@ -210,7 +223,6 @@ VoxelTraceResult voxel_trace(in VoxelRtTraceInfo info, in out vec3 ray_pos) {
     const uint miss_index = 0;
     const float t_min = 0.001;
     const float t_max = MAX_DIST;
-    t_nearest = t_max;
     HitAttribute nearest_hit_attrib = HitAttribute(0);
     rayQueryInitializeEXT(
         ray_query, accelerationStructureEXT(info.ptrs.tlas),
@@ -219,28 +231,20 @@ VoxelTraceResult voxel_trace(in VoxelRtTraceInfo info, in out vec3 ray_pos) {
         uint type = rayQueryGetIntersectionTypeEXT(ray_query, false);
         if (type == gl_RayQueryCandidateIntersectionAABBEXT) {
             const float t_aabb = rayQueryGetIntersectionTEXT(ray_query, false);
-            if (t_aabb < t_nearest) {
+            if (t_aabb < t_max && t_aabb < rayQueryGetIntersectionTEXT(ray_query, true)) {
                 intersect_voxel_brick(info.ptrs.geometry_pointers);
             }
         }
     }
-
-    if (t_nearest != t_max) {
+    result.dist = rayQueryGetIntersectionTEXT(ray_query, true);
+    if (rayQueryGetIntersectionTypeEXT(ray_query, true) == gl_RayQueryCommittedIntersectionGeneratedEXT) {
         uint instance_custom_index = rayQueryGetIntersectionInstanceCustomIndexEXT(ray_query, true);
         uint prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(ray_query, true);
         RayPayload prd = pack_ray_payload(instance_custom_index, prim_index, hit_attrib);
-
-        result.dist = t_nearest;
-        ray_pos += info.ray_dir * t_nearest;
-
-        // vec3 hit_pos, _hit_vel;
-        // PackedVoxel _temp_voxel = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(origin, direction), hit_pos, _hit_vel);
-        // dist = length(hit_pos - ray_pos);
-        // ray_pos = hit_pos;
-    } else {
-        result.dist = 0;
+        result.voxel_data = unpack_ray_payload(info.ptrs.geometry_pointers, info.ptrs.attribute_pointers, info.ptrs.blas_transforms, prd, Ray(ray_pos, info.ray_dir), ray_pos, result.vel);
+        Voxel voxel = unpack_voxel(result.voxel_data);
+        result.nrm = voxel.normal;
     }
-
     return result;
 }
 #endif

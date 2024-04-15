@@ -10,6 +10,8 @@ VOXELS_USE_BUFFERS_PUSH_USES(daxa_RWBufferPtr)
 #include <voxels/voxels.glsl>
 // #include <voxels/voxel_particle.glsl>
 
+#include <renderer/rt.glsl>
+
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
     VoxelRWBufferPtrs ptrs = VOXELS_RW_BUFFER_PTRS;
@@ -51,7 +53,7 @@ void main() {
     vec3 ray_dir = ray_dir_ws(vrc);
     vec3 cam_pos = ray_origin_ws(vrc);
     vec3 ray_pos = cam_pos;
-    voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0, true), ray_pos);
+    voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0, true), ray_pos);
 
     if (deref(ptrs.globals).brush_state.is_editing == 0) {
         deref(ptrs.globals).brush_state.initial_ray = ray_pos - cam_pos;

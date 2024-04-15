@@ -1109,6 +1109,10 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
             daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.gpu_input, gpu_context.task_input_buffer}},
             daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.gpu_output, gpu_context.task_output_buffer}},
             daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.chunk_updates, buffers.chunk_updates.task_resource}},
+            daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.geometry_pointers, buffers.blas_geom_pointers.task_resource}},
+            daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.attribute_pointers, buffers.blas_attr_pointers.task_resource}},
+            daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.blas_transforms, buffers.blas_transforms.task_resource}},
+            daxa::TaskViewVariant{std::pair{VoxelWorldPerframeCompute::AT.tlas, buffers.task_tlas}},
             VOXELS_BUFFER_USES_ASSIGN(VoxelWorldPerframeCompute, buffers),
         },
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, VoxelWorldPerframeComputePush &push, NoTaskInfo const &) {

@@ -48,7 +48,12 @@ void main() {
     PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(ray_o, ray_d), world_pos, vel_ws);
     Voxel voxel = unpack_voxel(voxel_data);
 
+#if PER_VOXEL_NORMALS
     vec3 ws_nrm = voxel.normal;
+#else
+    vec3 ws_nrm = voxel_face_normal((floor(world_pos * VOXEL_SCL + ray_d * 0.0001) + 0.5) * VOXEL_SIZE, Ray(ray_o, ray_d), vec3(1.0) / ray_d);
+#endif
+
     vec3 vs_nrm = (deref(push.uses.gpu_input).player.cam.world_to_view * vec4(ws_nrm, 0)).xyz;
     vec3 vs_velocity = vec3(0, 0, 0);
 

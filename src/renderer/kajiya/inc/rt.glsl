@@ -112,12 +112,18 @@ GbufferPathVertex trace(GbufferRaytrace self) {
         PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(self.ray.Origin, self.ray.Direction), world_pos, _unused_vel);
         Voxel voxel = unpack_voxel(voxel_data);
 
+#if PER_VOXEL_NORMALS
+        vec3 ws_nrm = voxel.normal;
+#else
+        vec3 ws_nrm = voxel_face_normal((floor(world_pos * VOXEL_SCL + self.ray.Direction * 0.001) + 0.5) * VOXEL_SIZE, Ray(self.ray.Origin, self.ray.Direction), vec3(1.0) / self.ray.Direction);
+#endif
+
         GbufferPathVertex res;
         res.is_hit = true;
         res.position = world_pos;
         res.gbuffer_packed.data0 = uvec4(0);
         res.gbuffer_packed.data0.x = voxel_data.data;
-        res.gbuffer_packed.data0.y = nrm_to_u16(voxel.normal);
+        res.gbuffer_packed.data0.y = nrm_to_u16(ws_nrm);
         res.ray_t = length(world_pos - self.ray.Origin);
         return res;
     } else {

@@ -236,6 +236,7 @@ void spawn_flower(in out Voxel voxel, uint flower_type) {
     flower.origin = voxel_pos;
     flower.packed_voxel = pack_voxel(voxel);
     flower.type = flower_type;
+    flower.flags = 1;
 
     uint index = FlowerAllocator_malloc(flower_allocator);
     daxa_RWBufferPtr(Flower) flowers = deref(flower_allocator).heap;
