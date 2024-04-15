@@ -58,21 +58,10 @@ uint new_uniformity_lod_mask_64(uvec3 within_lod_i) { return 1 << new_uniformity
 #define new_uniformity_lod_mask(N) new_uniformity_lod_mask_##N
 
 bool VoxelUniformityChunk_lod_nonuniform_2(daxa_BufferPtr(VoxelMallocPageAllocator) allocator, PaletteHeader palette_header, uint index, uint mask) {
-    if (palette_header.variant_n < 2) {
-        return false;
-    }
-
-    daxa_RWBufferPtr(uint) blob_u32s;
-    voxel_malloc_address_to_u32_ptr(allocator, palette_header.blob_ptr, blob_u32s);
-    return (deref(advance(blob_u32s, index)) & mask) != 0;
+    return false;
 }
 bool VoxelUniformityChunk_lod_nonuniform_4(daxa_BufferPtr(VoxelMallocPageAllocator) allocator, PaletteHeader palette_header, uint index, uint mask) {
-    if (palette_header.variant_n < 2) {
-        return false;
-    }
-    daxa_RWBufferPtr(uint) blob_u32s;
-    voxel_malloc_address_to_u32_ptr(allocator, palette_header.blob_ptr, blob_u32s);
-    return (deref(advance(blob_u32s, index)) & mask) != 0;
+    return false;
 }
 bool VoxelUniformityChunk_lod_nonuniform_8(daxa_BufferPtr(VoxelMallocPageAllocator) allocator, PaletteHeader palette_header, uint index, uint mask) {
     return palette_header.variant_n > 1;
@@ -119,34 +108,7 @@ uint calc_palette_voxel_index(uvec3 inchunk_voxel_i) {
 #define READ_FROM_HEAP 1
 // This function assumes the variant_n is greater than 1.
 PackedVoxel sample_palette(daxa_BufferPtr(VoxelMallocPageAllocator) allocator, PaletteHeader palette_header, uint palette_voxel_index) {
-#if READ_FROM_HEAP
-    daxa_RWBufferPtr(uint) blob_u32s;
-    voxel_malloc_address_to_u32_ptr(allocator, palette_header.blob_ptr, blob_u32s);
-    blob_u32s = advance(blob_u32s, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S);
-#endif
-    if (palette_header.variant_n > PALETTE_MAX_COMPRESSED_VARIANT_N) {
-#if READ_FROM_HEAP
-        return PackedVoxel(deref(advance(blob_u32s, palette_voxel_index)));
-#else
-        return PackedVoxel(0x01ffff00);
-#endif
-    }
-#if READ_FROM_HEAP
-    uint bits_per_variant = ceil_log2(palette_header.variant_n);
-    uint mask = (~0u) >> (32 - bits_per_variant);
-    uint bit_index = palette_voxel_index * bits_per_variant;
-    uint data_index = bit_index / 32;
-    uint data_offset = bit_index - data_index * 32;
-    uint my_palette_index = (deref(advance(blob_u32s, palette_header.variant_n + data_index + 0)) >> data_offset) & mask;
-    if (data_offset + bits_per_variant > 32) {
-        uint shift = bits_per_variant - ((data_offset + bits_per_variant) & 0x1f);
-        my_palette_index |= (deref(advance(blob_u32s, palette_header.variant_n + data_index + 1)) << shift) & mask;
-    }
-    uint voxel_data = deref(advance(blob_u32s, my_palette_index));
-    return PackedVoxel(voxel_data);
-#else
     return PackedVoxel(0x01ffff00);
-#endif
 }
 
 PackedVoxel sample_voxel_chunk(daxa_BufferPtr(VoxelMallocPageAllocator) allocator, daxa_BufferPtr(VoxelLeafChunk) voxel_chunk_ptr, uvec3 inchunk_voxel_i) {

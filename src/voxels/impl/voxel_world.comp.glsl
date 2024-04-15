@@ -867,9 +867,9 @@ void main() {
         compressed_size = PALETTE_REGION_TOTAL_SIZE;
         if (prev_variant_n > 1) {
             blob_ptr = prev_blob_ptr;
-            VoxelMalloc_realloc(voxel_malloc_page_allocator, voxel_chunk_ptr, blob_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
+            // VoxelMalloc_realloc(voxel_malloc_page_allocator, voxel_chunk_ptr, blob_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
         } else {
-            blob_ptr = VoxelMalloc_malloc(voxel_malloc_page_allocator, voxel_chunk_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
+            // blob_ptr = VoxelMalloc_malloc(voxel_malloc_page_allocator, voxel_chunk_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
         }
         if (palette_region_voxel_index == 0) {
             deref(voxel_chunk_ptr).palette_headers[palette_region_index].variant_n = palette_size;
@@ -881,9 +881,9 @@ void main() {
         compressed_size = palette_size + (bits_per_variant * PALETTE_REGION_TOTAL_SIZE + 31) / 32;
         if (prev_variant_n > 1) {
             blob_ptr = prev_blob_ptr;
-            VoxelMalloc_realloc(voxel_malloc_page_allocator, voxel_chunk_ptr, blob_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
+            // VoxelMalloc_realloc(voxel_malloc_page_allocator, voxel_chunk_ptr, blob_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
         } else {
-            blob_ptr = VoxelMalloc_malloc(voxel_malloc_page_allocator, voxel_chunk_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
+            // blob_ptr = VoxelMalloc_malloc(voxel_malloc_page_allocator, voxel_chunk_ptr, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + compressed_size);
         }
         if (palette_region_voxel_index == 0) {
             deref(voxel_chunk_ptr).palette_headers[palette_region_index].variant_n = palette_size;
@@ -908,7 +908,7 @@ void main() {
     } else {
         if (palette_region_voxel_index == 0) {
             if (prev_variant_n > 1) {
-                VoxelMalloc_free(voxel_malloc_page_allocator, voxel_chunk_ptr, prev_blob_ptr);
+                // VoxelMalloc_free(voxel_malloc_page_allocator, voxel_chunk_ptr, prev_blob_ptr);
             }
             deref(voxel_chunk_ptr).palette_headers[palette_region_index].variant_n = palette_size;
             deref(voxel_chunk_ptr).palette_headers[palette_region_index].blob_ptr = my_voxel;
@@ -922,9 +922,9 @@ void main() {
     uint frame_index = deref(gpu_input).frame_index % (FRAMES_IN_FLIGHT + 1);
 
     if (palette_region_voxel_index < compressed_size) {
-        daxa_RWBufferPtr(uint) blob_u32s;
-        voxel_malloc_address_to_u32_ptr(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), blob_ptr, blob_u32s);
-        deref(advance(blob_u32s, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + palette_region_voxel_index)) = compression_result[palette_region_voxel_index];
+        // daxa_RWBufferPtr(uint) blob_u32s;
+        // voxel_malloc_address_to_u32_ptr(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), blob_ptr, blob_u32s);
+        // deref(advance(blob_u32s, PALETTE_ACCELERATION_STRUCTURE_SIZE_U32S + palette_region_voxel_index)) = compression_result[palette_region_voxel_index];
         deref(advance(chunk_update_heap, frame_index * MAX_CHUNK_UPDATES_PER_FRAME_VOXEL_COUNT + output_offset + palette_region_voxel_index)) = compression_result[palette_region_voxel_index];
     }
     if (palette_region_voxel_index == 0) {
@@ -942,46 +942,43 @@ void main() {
         deref(advance(chunk_updates, frame_index * MAX_CHUNK_UPDATES_PER_FRAME + temp_chunk_index)).palette_headers[palette_region_index] = palette_header;
     }
 
-    if (palette_size > 1 && palette_region_voxel_index < 1) {
-        // write accel structure
-        // TODO: remove for a parallel option instead
-        daxa_RWBufferPtr(uint) blob_u32s;
-        voxel_malloc_address_to_u32_ptr(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), blob_ptr, blob_u32s);
-        uint i = palette_region_voxel_index;
-
-        deref(advance(blob_u32s, 0)) = 0x0;
-        deref(advance(blob_u32s, 1)) = 0x0;
-        deref(advance(blob_u32s, 2)) = 0x0;
-
-        uvec3 x8_i = palette_i;
-
-        for (uint x = 0; x < 2; ++x)
-            for (uint y = 0; y < 2; ++y)
-                for (uint z = 0; z < 2; ++z) {
-                    uvec3 local_i = x8_i * 2 + uvec3(x, y, z);
-                    uint index = uniformity_lod_index(4)(local_i);
-                    uint mask = uniformity_lod_mask(4)(local_i);
-                    bool has_occluding = (deref(temp_voxel_chunk_ptr).uniformity.lod_x4[index] & mask) != 0;
-                    uint new_index = new_uniformity_lod_index(4)(local_i);
-                    uint new_mask = new_uniformity_lod_mask(4)(local_i);
-                    if (has_occluding) {
-                        deref(advance(blob_u32s, new_index)) |= new_mask;
-                    }
-                }
-        for (uint x = 0; x < 4; ++x)
-            for (uint y = 0; y < 4; ++y)
-                for (uint z = 0; z < 4; ++z) {
-                    uvec3 local_i = x8_i * 4 + uvec3(x, y, z);
-                    uint index = uniformity_lod_index(2)(local_i);
-                    uint mask = uniformity_lod_mask(2)(local_i);
-                    bool has_occluding = (deref(temp_voxel_chunk_ptr).uniformity.lod_x2[index] & mask) != 0;
-                    uint new_index = new_uniformity_lod_index(2)(local_i);
-                    uint new_mask = new_uniformity_lod_mask(2)(local_i);
-                    if (has_occluding) {
-                        deref(advance(blob_u32s, new_index)) |= new_mask;
-                    }
-                }
-    }
+    // if (palette_size > 1 && palette_region_voxel_index < 1) {
+    //     // write accel structure
+    //     // TODO: remove for a parallel option instead
+    //     daxa_RWBufferPtr(uint) blob_u32s;
+    //     voxel_malloc_address_to_u32_ptr(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), blob_ptr, blob_u32s);
+    //     uint i = palette_region_voxel_index;
+    //     deref(advance(blob_u32s, 0)) = 0x0;
+    //     deref(advance(blob_u32s, 1)) = 0x0;
+    //     deref(advance(blob_u32s, 2)) = 0x0;
+    //     uvec3 x8_i = palette_i;
+    //     for (uint x = 0; x < 2; ++x)
+    //         for (uint y = 0; y < 2; ++y)
+    //             for (uint z = 0; z < 2; ++z) {
+    //                 uvec3 local_i = x8_i * 2 + uvec3(x, y, z);
+    //                 uint index = uniformity_lod_index(4)(local_i);
+    //                 uint mask = uniformity_lod_mask(4)(local_i);
+    //                 bool has_occluding = (deref(temp_voxel_chunk_ptr).uniformity.lod_x4[index] & mask) != 0;
+    //                 uint new_index = new_uniformity_lod_index(4)(local_i);
+    //                 uint new_mask = new_uniformity_lod_mask(4)(local_i);
+    //                 if (has_occluding) {
+    //                     deref(advance(blob_u32s, new_index)) |= new_mask;
+    //                 }
+    //             }
+    //     for (uint x = 0; x < 4; ++x)
+    //         for (uint y = 0; y < 4; ++y)
+    //             for (uint z = 0; z < 4; ++z) {
+    //                 uvec3 local_i = x8_i * 4 + uvec3(x, y, z);
+    //                 uint index = uniformity_lod_index(2)(local_i);
+    //                 uint mask = uniformity_lod_mask(2)(local_i);
+    //                 bool has_occluding = (deref(temp_voxel_chunk_ptr).uniformity.lod_x2[index] & mask) != 0;
+    //                 uint new_index = new_uniformity_lod_index(2)(local_i);
+    //                 uint new_mask = new_uniformity_lod_mask(2)(local_i);
+    //                 if (has_occluding) {
+    //                     deref(advance(blob_u32s, new_index)) |= new_mask;
+    //                 }
+    //             }
+    // }
 }
 #undef VOXEL_WORLD
 
