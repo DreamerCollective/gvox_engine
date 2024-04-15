@@ -100,22 +100,40 @@ bool getVoxel(daxa_BufferPtr(BlasGeom) blas_geoms, uint brick_id, ivec3 c) {
     return (val & (1 << in_u32_index)) != 0;
 }
 
-#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION || DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
 hitAttributeEXT HitAttribute hit_attrib;
-void main() {
+#else
+#extension GL_EXT_ray_query : enable
+rayQueryEXT ray_query;
+HitAttribute hit_attrib;
+float t_nearest;
+#endif
+
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION || DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_COMPUTE
+
+void intersect_voxel_brick(daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_pointers) {
     Ray ray;
+
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
+#define OBJECT_TO_WORLD_MAT gl_ObjectToWorld3x4EXT
+#define INSTANCE_CUSTOM_INDEX gl_InstanceCustomIndexEXT
+#define PRIMITIVE_INDEX gl_PrimitiveID
     ray.origin = gl_ObjectRayOriginEXT;
     ray.direction = gl_ObjectRayDirectionEXT;
-    mat4 world_to_blas = mat4(
-        gl_ObjectToWorld3x4EXT[0][0], gl_ObjectToWorld3x4EXT[0][1], gl_ObjectToWorld3x4EXT[0][2], gl_ObjectToWorld3x4EXT[0][3],
-        gl_ObjectToWorld3x4EXT[1][0], gl_ObjectToWorld3x4EXT[1][1], gl_ObjectToWorld3x4EXT[1][2], gl_ObjectToWorld3x4EXT[1][3],
-        gl_ObjectToWorld3x4EXT[2][0], gl_ObjectToWorld3x4EXT[2][1], gl_ObjectToWorld3x4EXT[2][2], gl_ObjectToWorld3x4EXT[2][3],
-        0, 0, 0, 1.0);
-    ray.origin = (world_to_blas * vec4(ray.origin, 1)).xyz;
-    ray.direction = (world_to_blas * vec4(ray.direction, 0)).xyz;
+#else
+    const mat3x4 object_to_world_mat = transpose(rayQueryGetIntersectionObjectToWorldEXT(ray_query, false));
+#define OBJECT_TO_WORLD_MAT object_to_world_mat
+#define INSTANCE_CUSTOM_INDEX rayQueryGetIntersectionInstanceCustomIndexEXT(ray_query, false)
+#define PRIMITIVE_INDEX rayQueryGetIntersectionPrimitiveIndexEXT(ray_query, false)
+    ray.origin = rayQueryGetIntersectionObjectRayOriginEXT(ray_query, false);
+    ray.direction = rayQueryGetIntersectionObjectRayDirectionEXT(ray_query, false);
+#endif
+
+    ray.origin = (OBJECT_TO_WORLD_MAT * ray.origin).xyz;
+    ray.direction = (OBJECT_TO_WORLD_MAT * ray.direction).xyz;
     float tHit = -1;
-    daxa_BufferPtr(BlasGeom) blas_geoms = deref(advance(push.uses.geometry_pointers, gl_InstanceCustomIndexEXT));
-    Aabb aabb = deref(advance(blas_geoms, gl_PrimitiveID)).aabb;
+    daxa_BufferPtr(BlasGeom) blas_geoms = deref(advance(geometry_pointers, INSTANCE_CUSTOM_INDEX));
+    Aabb aabb = deref(advance(blas_geoms, PRIMITIVE_INDEX)).aabb;
     tHit = hitAabb(aabb, ray);
     const float BIAS = uintBitsToFloat(0x3f800040);
     ray.origin += ray.direction * tHit * BIAS;
@@ -127,12 +145,19 @@ void main() {
         ivec3 rayStep = ivec3(sign(ray.direction));
         bvec3 mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
         for (int i = 0; i < int(3 * VOXEL_SCL); i++) {
-            if (getVoxel(blas_geoms, gl_PrimitiveID, mapPos) == true) {
+            if (getVoxel(blas_geoms, PRIMITIVE_INDEX, mapPos) == true) {
                 aabb.minimum += vec3(mapPos) * VOXEL_SIZE;
                 aabb.maximum = aabb.minimum + VOXEL_SIZE;
                 tHit += hitAabb_midpoint(aabb, ray);
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
                 hit_attrib = pack_hit_attribute(mapPos);
                 reportIntersectionEXT(tHit, 0);
+#else
+                if (tHit < t_nearest) {
+                    hit_attrib = pack_hit_attribute(mapPos);
+                    t_nearest = tHit;
+                }
+#endif
                 break;
             }
             mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
@@ -146,9 +171,14 @@ void main() {
         }
     }
 }
+#endif
+
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_INTERSECTION
+void main() {
+    intersect_voxel_brick(push.uses.geometry_pointers);
+}
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_CLOSEST_HIT
 layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
-hitAttributeEXT HitAttribute hit_attrib;
 void main() {
     prd = pack_ray_payload(gl_InstanceCustomIndexEXT, gl_PrimitiveID, hit_attrib);
 }
@@ -156,5 +186,61 @@ void main() {
 layout(location = PAYLOAD_LOC) rayPayloadInEXT RayPayload prd;
 void main() {
     prd = miss_ray_payload();
+}
+#endif
+
+#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_COMPUTE
+struct VoxelRtTraceInfo {
+    VoxelRtBufferPtrs ptrs;
+    vec3 ray_dir;
+    uint max_steps;
+    float max_dist;
+    float angular_coverage;
+    bool extend_to_max_dist;
+};
+
+VoxelTraceResult voxel_trace(in VoxelRtTraceInfo info, in out vec3 ray_pos) {
+    VoxelTraceResult result;
+
+    const uint ray_flags = gl_RayFlagsNoOpaqueEXT;
+    const uint cull_mask = 0xFF & ~(0x01);
+    // const uint cull_mask = 0xFF;
+    const uint sbt_record_offset = 0;
+    const uint sbt_record_stride = 0;
+    const uint miss_index = 0;
+    const float t_min = 0.001;
+    const float t_max = MAX_DIST;
+    t_nearest = t_max;
+    HitAttribute nearest_hit_attrib = HitAttribute(0);
+    rayQueryInitializeEXT(
+        ray_query, accelerationStructureEXT(info.ptrs.tlas),
+        ray_flags, cull_mask, ray_pos, t_min, info.ray_dir, t_max);
+    while (rayQueryProceedEXT(ray_query)) {
+        uint type = rayQueryGetIntersectionTypeEXT(ray_query, false);
+        if (type == gl_RayQueryCandidateIntersectionAABBEXT) {
+            const float t_aabb = rayQueryGetIntersectionTEXT(ray_query, false);
+            if (t_aabb < t_nearest) {
+                intersect_voxel_brick(info.ptrs.geometry_pointers);
+            }
+        }
+    }
+
+    if (t_nearest != t_max) {
+        uint instance_custom_index = rayQueryGetIntersectionInstanceCustomIndexEXT(ray_query, true);
+        uint prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(ray_query, true);
+        RayPayload prd = pack_ray_payload(instance_custom_index, prim_index, hit_attrib);
+
+        result.dist = t_nearest;
+        ray_pos += info.ray_dir * t_nearest;
+
+        // vec3 hit_pos, _hit_vel;
+        // PackedVoxel _temp_voxel = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(origin, direction), hit_pos, _hit_vel);
+        // dist = length(hit_pos - ray_pos);
+        // ray_pos = hit_pos;
+    } else {
+        result.dist = 0;
+    }
+
+    return result;
 }
 #endif

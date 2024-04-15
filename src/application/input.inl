@@ -117,15 +117,3 @@ struct IndirectDrawIndexedParams {
     daxa_u32 vertex_offset;
     daxa_u32 first_instance;
 };
-
-struct Aabb {
-    daxa_f32vec3 minimum;
-    daxa_f32vec3 maximum;
-};
-
-struct BlasGeom {
-    Aabb aabb;
-    daxa_u32 bitmask[BLAS_BRICK_SIZE * BLAS_BRICK_SIZE * BLAS_BRICK_SIZE / 32];
-};
-DAXA_DECL_BUFFER_PTR(BlasGeom)
-DAXA_DECL_BUFFER_PTR(daxa_BufferPtr(BlasGeom))

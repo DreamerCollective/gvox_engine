@@ -137,6 +137,12 @@ struct VoxelBufferPtrs {
     daxa_BufferPtr(VoxelLeafChunk) voxel_chunks_ptr;
     daxa_BufferPtr(VoxelWorldGlobals) globals;
 };
+struct VoxelRtBufferPtrs {
+    daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_pointers;
+    daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)) attribute_pointers;
+    daxa_BufferPtr(VoxelBlasTransform) blas_transforms;
+    daxa_u64 tlas;
+};
 struct VoxelRWBufferPtrs {
     daxa_RWBufferPtr(VoxelMallocPageAllocator) allocator;
     daxa_RWBufferPtr(VoxelLeafChunk) voxel_chunks_ptr;
@@ -145,6 +151,12 @@ struct VoxelRWBufferPtrs {
 
 #define VOXELS_BUFFER_PTRS VoxelBufferPtrs(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), daxa_BufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_BufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
 #define VOXELS_RW_BUFFER_PTRS VoxelRWBufferPtrs(daxa_RWBufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), daxa_RWBufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_RWBufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
+
+#define VOXELS_RT_BUFFER_PTRS VoxelRtBufferPtrs( \
+    push.uses.geometry_pointers,                 \
+    push.uses.attribute_pointers,                \
+    push.uses.blas_transforms,                   \
+    push.uses.tlas)
 
 #define MAX_CHUNK_UPDATES_PER_FRAME_VOXEL_COUNT (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * MAX_CHUNK_UPDATES_PER_FRAME)
 
