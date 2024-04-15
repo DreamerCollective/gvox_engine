@@ -26,40 +26,7 @@ VoxelTraceResult voxel_trace(in VoxelTraceInfo info, in out vec3 ray_pos) {
 
         ray_pos += info.ray_dir * 0.01 * VOXEL_SIZE;
 
-        if (false) {
-            result.dist = 0.0;
-            if (!inside(ray_pos, b)) {
-                if (info.extend_to_max_dist) {
-                    result.dist = info.max_dist;
-                }
-            } else {
-                PackedVoxel dontcare;
-                uint lod = sample_lod(info.ptrs.globals, info.ptrs.allocator, voxel_chunks_ptr, chunk_n, ray_pos, dontcare);
-                Voxel voxel = Voxel(0, 0, vec3(0), vec3(0));
-                voxel.color = vec3(0);
-                switch (lod) {
-                case 0: voxel.color = vec3(0.0, 0.0, 0.0); break;
-                case 1: voxel.color = vec3(1.0, 0.0, 0.0); break;
-                case 2: voxel.color = vec3(0.0, 1.0, 0.0); break;
-                case 3: voxel.color = vec3(1.0, 1.0, 0.0); break;
-                case 4: voxel.color = vec3(0.0, 0.0, 1.0); break;
-                case 5: voxel.color = vec3(1.0, 0.0, 1.0); break;
-                case 6: voxel.color = vec3(0.0, 1.0, 1.0); break;
-                case 7: voxel.color = vec3(1.0, 1.0, 1.0); break;
-                }
-                result.voxel_data = pack_voxel(voxel);
-                result.nrm = vec3(0, 0, 1);
-            }
-            ray_pos -= offset;
-            return result;
-        }
-
         if (!inside(ray_pos, b)) {
-            if (info.extend_to_max_dist) {
-                result.dist = info.max_dist;
-            } else {
-                result.dist = 0.0;
-            }
             ray_pos -= offset;
             return result;
         }
@@ -121,10 +88,6 @@ VoxelTraceResult voxel_trace(in VoxelTraceInfo info, in out vec3 ray_pos) {
         ray_pos -= offset;
 
         if (hit_surface) {
-
-            if (info.extend_to_max_dist) {
-                t_curr = result.dist;
-            }
             ray_pos = ray_pos + info.ray_dir * t_curr;
             result.dist = t_curr;
 

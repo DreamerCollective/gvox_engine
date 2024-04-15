@@ -53,7 +53,7 @@ void main() {
     vec3 ray_dir = ray_dir_ws(vrc);
     vec3 cam_pos = ray_origin_ws(vrc);
     vec3 ray_pos = cam_pos;
-    voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0, true), ray_pos);
+    voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_DIST), ray_pos);
 
     if (deref(ptrs.globals).brush_state.is_editing == 0) {
         deref(ptrs.globals).brush_state.initial_ray = ray_pos - cam_pos;

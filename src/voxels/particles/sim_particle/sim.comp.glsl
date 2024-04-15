@@ -91,7 +91,7 @@ void particle_update(in out SimulatedVoxelParticle self, uint self_index, daxa_B
         float curr_dist_in_dt = curr_speed * dt;
         vec3 ray_pos = get_particle_worldspace_pos(gpu_input, self.pos);
 
-        VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, self.vel / curr_speed, MAX_STEPS, curr_dist_in_dt, 0.0, true), ray_pos);
+        VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, self.vel / curr_speed, curr_dist_in_dt), ray_pos);
         float dist = trace_result.dist;
 
         if (dist < curr_dist_in_dt) {

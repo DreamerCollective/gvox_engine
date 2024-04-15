@@ -41,7 +41,7 @@ void main() {
     vec3 ray_pos = origin_ws + vec3(0, 0, VOXEL_SIZE);
     vec3 ray_dir = normalize(vec3(0.0001, 0.0001, -1));
 
-    VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_STEPS, 1.0 * VOXEL_SIZE, 0.0, true), ray_pos);
+    VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, 1.0 * VOXEL_SIZE), ray_pos);
     Voxel ground_voxel = unpack_voxel(trace_result.voxel_data);
 
     if ((grass_voxel.material_type != ground_voxel.material_type ||

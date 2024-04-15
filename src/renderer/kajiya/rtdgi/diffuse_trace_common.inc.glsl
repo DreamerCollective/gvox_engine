@@ -44,7 +44,7 @@ bool rt_is_shadowed(RayDesc ray) {
         ray.Origin, ray.TMin, ray.Direction, ray.TMax, PAYLOAD_LOC);
     shadow_payload.is_shadowed = prd.data1 != miss_ray_payload().data1;
 #else
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin, true), ray.Origin);
+    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin), ray.Origin);
     shadow_payload.is_shadowed = trace_result.dist < ray.TMax;
 #endif
     return shadow_payload.is_shadowed;

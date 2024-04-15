@@ -1,7 +1,7 @@
 #pragma once
 
 #define VOXEL_ACCEL_UNIFORMITY 1
-#define ENABLE_DEPTH_PREPASS 1
+#define ENABLE_DEPTH_PREPASS 0
 
 #define CHUNK_FLAGS_ACCEL_GENERATED (1 << 0)
 

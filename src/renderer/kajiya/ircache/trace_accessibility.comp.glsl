@@ -22,7 +22,7 @@ daxa_BufferPtr(uint) ircache_entry_indirection_buf = push.uses.ircache_entry_ind
 
 bool rt_is_shadowed(RayDesc ray) {
     ShadowRayPayload shadow_payload = ShadowRayPayload_new_hit();
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin, true), ray.Origin);
+    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray.Direction, MAX_STEPS, ray.TMax, ray.TMin), ray.Origin);
     shadow_payload.is_shadowed = trace_result.dist < ray.TMax;
     return shadow_payload.is_shadowed;
 }

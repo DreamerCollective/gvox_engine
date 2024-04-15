@@ -174,6 +174,15 @@ void intersect_voxel_brick(daxa_BufferPtr(daxa_BufferPtr(BlasGeom)) geometry_poi
                 break;
             }
             mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
+            // if (int(mask.x) + int(mask.y) + int(mask.z) > 1) {
+            //     if (mask.x && mask.y && mask.z) {
+            //         mask.yz = bvec2(false);
+            //     } else if (mask.x && mask.y) {
+            //         mask.y = false;
+            //     } else {
+            //         mask.z = false;
+            //     }
+            // }
             sideDist += vec3(mask) * deltaDist;
             mapPos += ivec3(vec3(mask)) * rayStep;
             bool outside_l = any(lessThan(mapPos, ivec3(0)));
@@ -206,10 +215,7 @@ void main() {
 struct VoxelRtTraceInfo {
     VoxelRtBufferPtrs ptrs;
     vec3 ray_dir;
-    uint max_steps;
     float max_dist;
-    float angular_coverage;
-    bool extend_to_max_dist;
 };
 
 VoxelTraceResult voxel_trace(in VoxelRtTraceInfo info, in out vec3 ray_pos) {

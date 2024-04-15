@@ -16,6 +16,10 @@ struct TraceDepthPrepassComputePush {
 
 DAXA_DECL_TASK_HEAD_BEGIN(TracePrimaryCompute)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
+// DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
+// DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(VoxelBrickAttribs)), attribute_pointers)
+// DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(VoxelBlasTransform), blas_transforms)
+// DAXA_TH_TLAS_PTR(COMPUTE_SHADER_READ, tlas)
 VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_3D, blue_noise_vec2)
 DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, debug_texture)
@@ -135,6 +139,10 @@ struct GbufferRenderer {
                 .source = daxa::ShaderFile{"trace_primary.comp.glsl"},
                 .views = std::array{
                     daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.gpu_input, gpu_context.task_input_buffer}},
+                    // daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.geometry_pointers, voxel_buffers.blas_geom_pointers.task_resource}},
+                    // daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.attribute_pointers, voxel_buffers.blas_attr_pointers.task_resource}},
+                    // daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.blas_transforms, voxel_buffers.blas_transforms.task_resource}},
+                    // daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.tlas, voxel_buffers.task_tlas}},
                     VOXELS_BUFFER_USES_ASSIGN(TracePrimaryCompute, voxel_buffers),
                     daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.blue_noise_vec2, gpu_context.task_blue_noise_vec2_image}},
                     daxa::TaskViewVariant{std::pair{TracePrimaryCompute::AT.debug_texture, gpu_context.task_debug_texture}},

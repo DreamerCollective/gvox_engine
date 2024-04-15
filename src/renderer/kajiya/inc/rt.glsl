@@ -135,7 +135,7 @@ GbufferPathVertex trace(GbufferRaytrace self) {
 }
 #else
 GbufferPathVertex trace(GbufferRaytrace self, VoxelBufferPtrs voxels_buffer_ptrs) {
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(voxels_buffer_ptrs, self.ray.Direction, MAX_STEPS, self.ray.TMax, self.ray.TMin, true), self.ray.Origin);
+    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(voxels_buffer_ptrs, self.ray.Direction, MAX_STEPS, self.ray.TMax, self.ray.TMin), self.ray.Origin);
     const bool is_hit = trace_result.dist < self.ray.TMax;
 
     if (is_hit) {

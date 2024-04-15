@@ -9,7 +9,6 @@ struct VoxelTraceInfo {
     uint max_steps;
     float max_dist;
     float angular_coverage;
-    bool extend_to_max_dist;
 };
 
 struct VoxelTraceResult {

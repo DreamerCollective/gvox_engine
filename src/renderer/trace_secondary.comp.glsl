@@ -44,7 +44,7 @@ void main() {
 
     uint hit = 0;
     if (depth != 0.0 && dot(nrm, ray_dir) > 0) {
-        VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0, true), ray_pos);
+        VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0), ray_pos);
         hit = uint(trace_result.dist == MAX_DIST);
     }
 

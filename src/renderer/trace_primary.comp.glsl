@@ -24,7 +24,7 @@ void main() {
     vec3 ray_pos = cam_pos;
 
 #if ENABLE_DEPTH_PREPASS
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 16.0 * output_tex_size.w * deref(gpu_input).player.cam.clip_to_view[1][1], true), ray_pos);
+    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 16.0 * output_tex_size.w * deref(gpu_input).player.cam.clip_to_view[1][1]), ray_pos);
 #endif
 
     float depth = length(ray_pos - cam_pos);
@@ -52,6 +52,7 @@ daxa_ImageViewIndex vs_normal_image_id = push.uses.vs_normal_image_id;
 daxa_ImageViewIndex depth_image_id = push.uses.depth_image_id;
 
 #include <renderer/atmosphere/sky.glsl>
+// #include <renderer/rt.glsl>
 
 #define PIXEL_I gl_GlobalInvocationID.xy
 #define INPUT deref(gpu_input)
@@ -89,8 +90,8 @@ void main() {
 
     vec3 ray_pos = cam_pos + ray_dir * prepass_depth;
 
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0, true), ray_pos);
-    uint step_n = trace_result.step_n;
+    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(VOXELS_BUFFER_PTRS, ray_dir, MAX_STEPS, MAX_DIST, 0.0), ray_pos);
+    // VoxelTraceResult trace_result = voxel_trace(VoxelRtTraceInfo(VOXELS_RT_BUFFER_PTRS, ray_dir, MAX_DIST), ray_pos);
 
     uvec4 output_value = uvec4(0);
 
@@ -102,40 +103,6 @@ void main() {
     float depth = ss_pos.z / ss_pos.w;
     vec3 vs_nrm = vec3(0);
     vec3 vs_velocity = vec3(0);
-
-#if !PER_VOXEL_NORMALS && defined(VOXELS_ORIGINAL_IMPL)
-    bool is_valid = true;
-    if (trace_result.dist != MAX_DIST) {
-        uvec3 chunk_n = uvec3(CHUNKS_PER_AXIS);
-        PackedVoxel voxel_data = sample_voxel_chunk(VOXELS_BUFFER_PTRS, chunk_n, ray_pos, trace_result.nrm * 0.5);
-        Voxel voxel = unpack_voxel(voxel_data);
-        is_valid = voxel.material_type == 0;
-    }
-    vec3 old_nrm = trace_result.nrm;
-    if (!is_valid) {
-        trace_result.nrm = vec3(0.0);
-    }
-    vec3 valid_nrm = vec3(0);
-    uint thread2x2_root_index = gl_SubgroupInvocationID & (~(8 | 1));
-    valid_nrm.x += subgroupBroadcast(trace_result.nrm.x, thread2x2_root_index + 0);
-    valid_nrm.y += subgroupBroadcast(trace_result.nrm.y, thread2x2_root_index + 0);
-    valid_nrm.z += subgroupBroadcast(trace_result.nrm.z, thread2x2_root_index + 0);
-    valid_nrm.x += subgroupBroadcast(trace_result.nrm.x, thread2x2_root_index + 1);
-    valid_nrm.y += subgroupBroadcast(trace_result.nrm.y, thread2x2_root_index + 1);
-    valid_nrm.z += subgroupBroadcast(trace_result.nrm.z, thread2x2_root_index + 1);
-    valid_nrm.x += subgroupBroadcast(trace_result.nrm.x, thread2x2_root_index + 8);
-    valid_nrm.y += subgroupBroadcast(trace_result.nrm.y, thread2x2_root_index + 8);
-    valid_nrm.z += subgroupBroadcast(trace_result.nrm.z, thread2x2_root_index + 8);
-    valid_nrm.x += subgroupBroadcast(trace_result.nrm.x, thread2x2_root_index + 9);
-    valid_nrm.y += subgroupBroadcast(trace_result.nrm.y, thread2x2_root_index + 9);
-    valid_nrm.z += subgroupBroadcast(trace_result.nrm.z, thread2x2_root_index + 9);
-    if (!is_valid) {
-        trace_result.nrm = normalize(valid_nrm);
-    }
-    if (dot(valid_nrm, valid_nrm) == 0.0) {
-        trace_result.nrm = old_nrm;
-    }
-#endif
 
     if (trace_result.dist == MAX_DIST) {
         output_value.y = nrm_to_u16(vec3(0, 0, 1));
