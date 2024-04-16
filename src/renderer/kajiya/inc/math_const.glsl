@@ -29,5 +29,7 @@
 
 #define GOLDEN_ANGLE 2.39996323
 
+#ifndef __cplusplus
 #define select(cond, a, b) mix(b, a, cond)
 #define rcp(x) (1.0 / x)
+#endif
