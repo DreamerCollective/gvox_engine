@@ -15,9 +15,7 @@
 
 DAXA_DECL_TASK_HEAD_BEGIN(VoxelParticlePerframeCompute)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(GpuOutput), gpu_output)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(VoxelParticlesState), particles_state)
-VOXELS_USE_BUFFERS(daxa_RWBufferPtr, COMPUTE_SHADER_READ_WRITE)
 SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, GrassStrandAllocator)
 SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, FlowerAllocator)
 SIMPLE_STATIC_ALLOCATOR_USE_BUFFERS(COMPUTE_SHADER_READ_WRITE, TreeParticleAllocator)
@@ -107,9 +105,7 @@ struct VoxelParticles {
             .source = daxa::ShaderFile{"voxels/particles/perframe.comp.glsl"},
             .views = std::array{
                 daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.gpu_input, gpu_context.task_input_buffer}},
-                daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.gpu_output, gpu_context.task_output_buffer}},
                 daxa::TaskViewVariant{std::pair{VoxelParticlePerframeCompute::AT.particles_state, global_state.task_resource}},
-                VOXELS_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, voxel_world_buffers),
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, GrassStrandAllocator, grass.grass_allocator),
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, FlowerAllocator, flowers.flower_allocator),
                 SIMPLE_STATIC_ALLOCATOR_BUFFER_USES_ASSIGN(VoxelParticlePerframeCompute, TreeParticleAllocator, tree_particles.tree_particle_allocator),

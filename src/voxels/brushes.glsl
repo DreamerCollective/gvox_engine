@@ -489,7 +489,7 @@ void brush_remove_ball(in out Voxel voxel) {
 }
 
 void brushgen_a(in out Voxel voxel) {
-    PackedVoxel voxel_data = sample_voxel_chunk(voxel_malloc_page_allocator, voxel_chunk_ptr, inchunk_voxel_i);
+    PackedVoxel voxel_data = PackedVoxel(0);
     Voxel prev_voxel = unpack_voxel(voxel_data);
 
     voxel.color = prev_voxel.color;
@@ -520,7 +520,7 @@ void brush_grass_ball(in out Voxel voxel) {
 }
 void brush_flowers(in out Voxel voxel) {
     float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 32.0 * VOXEL_SIZE);
-    PackedVoxel temp_voxel_data = sample_voxel_chunk(VOXELS_BUFFER_PTRS, chunk_n, voxel_pos + vec3(0, 0, VOXEL_SIZE), vec3(0));
+    PackedVoxel temp_voxel_data = PackedVoxel(0);
     Voxel above_voxel = unpack_voxel(temp_voxel_data);
     if (sd < 0 && voxel.material_type != 0 && above_voxel.material_type == 0) {
         float r2 = good_rand(voxel_pos.xy);
@@ -821,7 +821,7 @@ void brush_spruce_tree_big(in out Voxel voxel) {
 }
 
 void brushgen_b(in out Voxel voxel) {
-    PackedVoxel voxel_data = sample_voxel_chunk(voxel_malloc_page_allocator, voxel_chunk_ptr, inchunk_voxel_i);
+    PackedVoxel voxel_data = PackedVoxel(0);
     Voxel prev_voxel = unpack_voxel(voxel_data);
 
     voxel.color = prev_voxel.color;

@@ -96,15 +96,6 @@ GpuContext::GpuContext() {
         .size = sizeof(GpuInput),
         .name = "input_buffer",
     });
-    output_buffer = device.create_buffer({
-        .size = sizeof(GpuOutput) * (FRAMES_IN_FLIGHT + 1),
-        .name = "output_buffer",
-    });
-    staging_output_buffer = device.create_buffer({
-        .size = sizeof(GpuOutput) * (FRAMES_IN_FLIGHT + 1),
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-        .name = "staging_output_buffer",
-    });
     sampler_nnc = device.create_sampler({
         .magnification_filter = daxa::Filter::NEAREST,
         .minification_filter = daxa::Filter::NEAREST,
@@ -147,8 +138,6 @@ GpuContext::GpuContext() {
     pipeline_manager->add_virtual_file(g_value_noise_header);
 
     task_input_buffer.set_buffers({.buffers = std::array{input_buffer}});
-    task_output_buffer.set_buffers({.buffers = std::array{output_buffer}});
-    task_staging_output_buffer.set_buffers({.buffers = std::array{staging_output_buffer}});
 
     task_value_noise_image.set_images({.images = std::array{value_noise_image}});
     task_value_noise_image_view = task_value_noise_image.view().view({.layer_count = 256});
@@ -414,8 +403,6 @@ GpuContext::~GpuContext() {
         device.destroy_image(test_texture2);
     }
     device.destroy_buffer(input_buffer);
-    device.destroy_buffer(output_buffer);
-    device.destroy_buffer(staging_output_buffer);
     device.destroy_sampler(sampler_nnc);
     device.destroy_sampler(sampler_lnc);
     device.destroy_sampler(sampler_llc);
@@ -444,8 +431,6 @@ void GpuContext::use_resources() {
         task_graph.use_persistent_image(task_test_texture2);
 
         task_graph.use_persistent_buffer(task_input_buffer);
-        task_graph.use_persistent_buffer(task_output_buffer);
-        task_graph.use_persistent_buffer(task_staging_output_buffer);
     };
 
     use_shared_resources(frame_task_graph);

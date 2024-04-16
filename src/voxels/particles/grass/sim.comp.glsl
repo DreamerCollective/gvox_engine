@@ -6,7 +6,6 @@ daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
 daxa_RWBufferPtr(VoxelParticlesState) particles_state = push.uses.particles_state;
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(GrassStrandAllocator, grass_allocator)
 daxa_RWBufferPtr(GrassStrand) grass_strands = deref(grass_allocator).heap;
-// VOXELS_USE_BUFFERS_PUSH_USES(daxa_BufferPtr)
 daxa_RWBufferPtr(PackedParticleVertex) cube_rendered_particle_verts = push.uses.cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) shadow_cube_rendered_particle_verts = push.uses.shadow_cube_rendered_particle_verts;
 daxa_RWBufferPtr(PackedParticleVertex) splat_rendered_particle_verts = push.uses.splat_rendered_particle_verts;

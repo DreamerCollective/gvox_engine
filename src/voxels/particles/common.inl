@@ -2,6 +2,7 @@
 
 #include <core.inl>
 #include <application/input.inl>
+#include <utilities/allocator.inl>
 
 // for PackedVoxel
 #include <voxels/brushes.inl>

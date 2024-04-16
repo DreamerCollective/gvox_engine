@@ -133,25 +133,4 @@ GbufferPathVertex trace(GbufferRaytrace self) {
         return res;
     }
 }
-#else
-GbufferPathVertex trace(GbufferRaytrace self, VoxelBufferPtrs voxels_buffer_ptrs) {
-    VoxelTraceResult trace_result = voxel_trace(VoxelTraceInfo(voxels_buffer_ptrs, self.ray.Direction, MAX_STEPS, self.ray.TMax, self.ray.TMin), self.ray.Origin);
-    const bool is_hit = trace_result.dist < self.ray.TMax;
-
-    if (is_hit) {
-        GbufferPathVertex res;
-        res.is_hit = true;
-        res.position = self.ray.Origin;
-        res.gbuffer_packed.data0 = uvec4(0);
-        res.gbuffer_packed.data0.x = trace_result.voxel_data.data;
-        res.gbuffer_packed.data0.y = nrm_to_u16(trace_result.nrm);
-        res.ray_t = trace_result.dist;
-        return res;
-    } else {
-        GbufferPathVertex res;
-        res.is_hit = false;
-        res.ray_t = FLT_MAX;
-        return res;
-    }
-}
 #endif

@@ -34,7 +34,6 @@ struct VoxelApp : AppWindow<VoxelApp> {
 
     PlayerInput player_input{};
     GpuInput gpu_input{};
-    GpuOutput gpu_output{};
 
     bool needs_vram_calc = true;
 

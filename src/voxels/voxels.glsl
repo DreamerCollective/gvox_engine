@@ -3,14 +3,6 @@
 #include <voxels/voxels.inl>
 #include <voxels/brushes.inl>
 
-struct VoxelTraceInfo {
-    VoxelBufferPtrs ptrs;
-    vec3 ray_dir;
-    uint max_steps;
-    float max_dist;
-    float angular_coverage;
-};
-
 struct VoxelTraceResult {
     float dist;
     vec3 nrm;
@@ -19,7 +11,4 @@ struct VoxelTraceResult {
     PackedVoxel voxel_data;
 };
 
-// These are the functions that this file must define!
-VoxelTraceResult voxel_trace(in VoxelTraceInfo info, in out vec3 ray_pos);
-
-#include <voxels/impl/trace.glsl>
+#include <voxels/impl/voxels.glsl>

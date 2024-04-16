@@ -98,11 +98,6 @@ struct GpuInput {
 };
 DAXA_DECL_BUFFER_PTR(GpuInput)
 
-struct GpuOutput {
-    VoxelWorldOutput voxel_world;
-};
-DAXA_DECL_BUFFER_PTR(GpuOutput)
-
 struct IndirectDrawParams {
     daxa_u32 vertex_count;
     daxa_u32 instance_count;

@@ -166,7 +166,7 @@ void VoxelApp::on_update() {
     std::copy(std::begin(gpu_input.actions), std::end(gpu_input.actions), std::begin(player_input.actions));
     player_perframe(player_input, gpu_input.player, voxel_world);
 
-    voxel_world.begin_frame(gpu_context.device, gpu_input, gpu_output.voxel_world);
+    voxel_world.begin_frame(gpu_context.device, gpu_input);
 
     gpu_input.fif_index = gpu_input.frame_index % (FRAMES_IN_FLIGHT + 1);
     gpu_context.frame_task_graph.execute({});
@@ -346,27 +346,6 @@ void VoxelApp::record_tasks() {
 
     gpu_context.frame_task_graph.add_task({
         .attachments = {
-            daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, gpu_context.task_output_buffer),
-            daxa::inl_attachment(daxa::TaskBufferAccess::HOST_TRANSFER_WRITE, gpu_context.task_staging_output_buffer),
-        },
-        .task = [this](daxa::TaskInterface const &ti) {
-            auto output_buffer = gpu_context.task_output_buffer.get_state().buffers[0];
-            auto staging_output_buffer = gpu_context.staging_output_buffer;
-            auto frame_index = gpu_input.frame_index + 1;
-            auto *buffer_ptr = ti.device.get_host_address_as<std::array<GpuOutput, (FRAMES_IN_FLIGHT + 1)>>(staging_output_buffer).value();
-            daxa_u32 const offset = frame_index % (FRAMES_IN_FLIGHT + 1);
-            gpu_output = (*buffer_ptr)[offset];
-            ti.recorder.copy_buffer_to_buffer({
-                .src_buffer = output_buffer,
-                .dst_buffer = staging_output_buffer,
-                .size = sizeof(GpuOutput) * (FRAMES_IN_FLIGHT + 1),
-            });
-        },
-        .name = "GpuOutputDownloadTransferTask",
-    });
-
-    gpu_context.frame_task_graph.add_task({
-        .attachments = {
             daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, daxa::ImageViewType::REGULAR_2D, gpu_context.task_swapchain_image),
         },
         .task = [this](daxa::TaskInterface const &ti) {
@@ -474,11 +453,6 @@ void VoxelApp::calc_vram_usage() {
     }
 
 #if defined(VOXELS_ORIGINAL_IMPL)
-    buffer_size(voxel_world.buffers.voxel_malloc.allocator_buffer);
-    buffer_size(voxel_world.buffers.voxel_malloc.element_buffer);
-    buffer_size(voxel_world.buffers.voxel_malloc.available_element_stack_buffer);
-    buffer_size(voxel_world.buffers.voxel_malloc.released_element_stack_buffer);
-
     buffer_size(voxel_world.buffers.blas_attr_pointers.resource_id);
     buffer_size(voxel_world.buffers.blas_geom_pointers.resource_id);
     buffer_size(voxel_world.buffers.blas_transforms.resource_id);

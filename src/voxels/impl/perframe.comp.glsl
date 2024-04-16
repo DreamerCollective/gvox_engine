@@ -2,7 +2,6 @@
 
 DAXA_DECL_PUSH_CONSTANT(VoxelWorldPerframeComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
-daxa_RWBufferPtr(GpuOutput) gpu_output = push.uses.gpu_output;
 daxa_RWBufferPtr(ChunkUpdate) chunk_updates = push.uses.chunk_updates;
 VOXELS_USE_BUFFERS_PUSH_USES(daxa_RWBufferPtr)
 
@@ -33,17 +32,6 @@ void main() {
     deref(ptrs.globals).indirect_dispatch.chunk_edit_dispatch = uvec3(CHUNK_SIZE / 8, CHUNK_SIZE / 8, 0);
     deref(ptrs.globals).indirect_dispatch.subchunk_x2x4_dispatch = uvec3(1, 64, 0);
     deref(ptrs.globals).indirect_dispatch.subchunk_x8up_dispatch = uvec3(1, 1, 0);
-
-    VoxelMallocPageAllocator_perframe(ptrs.allocator);
-    // VoxelLeafChunkAllocator_perframe(ptrs.voxel_leaf_chunk_allocator);
-    // VoxelParentChunkAllocator_perframe(ptrs.voxel_parent_chunk_allocator);
-
-    deref(advance(gpu_output, deref(gpu_input).fif_index)).voxel_world.voxel_malloc_output.current_element_count =
-        VoxelMallocPageAllocator_get_consumed_element_count(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(ptrs.allocator)));
-    // deref(advance(gpu_output, deref(gpu_input).fif_index)).voxel_world.voxel_leaf_chunk_output.current_element_count =
-    //     VoxelLeafChunkAllocator_get_consumed_element_count(voxel_leaf_chunk_allocator);
-    // deref(advance(gpu_output, deref(gpu_input).fif_index)).voxel_world.voxel_parent_chunk_output.current_element_count =
-    //     VoxelParentChunkAllocator_get_consumed_element_count(voxel_parent_chunk_allocator);
 
     // Brush stuff
     vec2 frame_dim = deref(gpu_input).frame_dim;

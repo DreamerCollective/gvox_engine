@@ -31,19 +31,10 @@ void main() {
     validity_rt_samples = max_rt_samples;
 #endif
 
-    if (push.use_hwrt != 0) {
-        // Main ray tracing
-        deref(advance(dispatch_args, 0)) = uvec4(main_rt_samples, 1, 1, 0);
-        // Accessibility tracing
-        deref(advance(dispatch_args, 1)) = uvec4(accessibility_rt_samples, 1, 1, 0);
-        // Validity check
-        deref(advance(dispatch_args, 3)) = uvec4(validity_rt_samples, 1, 1, 0);
-    } else {
-        // Main ray tracing
-        deref(advance(dispatch_args, 0)) = uvec4((main_rt_samples + 31) / 32, 1, 1, 0);
-        // Accessibility tracing
-        deref(advance(dispatch_args, 1)) = uvec4((accessibility_rt_samples + 31) / 32, 1, 1, 0);
-        // Validity check
-        deref(advance(dispatch_args, 3)) = uvec4((validity_rt_samples + 31) / 32, 1, 1, 0);
-    }
+    // Main ray tracing
+    deref(advance(dispatch_args, 0)) = uvec4(main_rt_samples, 1, 1, 0);
+    // Accessibility tracing
+    deref(advance(dispatch_args, 1)) = uvec4(accessibility_rt_samples, 1, 1, 0);
+    // Validity check
+    deref(advance(dispatch_args, 3)) = uvec4(validity_rt_samples, 1, 1, 0);
 }

@@ -1,10 +1,39 @@
 #pragma once
 
-#include <voxels/impl/voxel_malloc.inl>
 #include <voxels/gvox_model.inl>
 #include <voxels/brushes.inl>
 
 #define VOXELS_ORIGINAL_IMPL
+
+#define CHUNK_SIZE 64 // A chunk = 64^3 voxels
+#define CHUNKS_PER_AXIS 32
+#define CHUNKS_DISPATCH_SIZE (CHUNKS_PER_AXIS / 8)
+
+#define LOG2_VOXEL_SIZE (-4)
+#if LOG2_VOXEL_SIZE <= 0
+#define VOXEL_SCL (1 << (-LOG2_VOXEL_SIZE))
+#define VOXEL_SIZE (1.0 / VOXEL_SCL)
+#else
+#define VOXEL_SIZE (1 << LOG2_VOXEL_SIZE)
+#define VOXEL_SCL (1.0 / VOXEL_SIZE)
+#endif
+#define CHUNK_WORLDSPACE_SIZE (float(CHUNK_SIZE) * float(VOXEL_SIZE))
+#if LOG2_VOXEL_SIZE < -6
+#error "this is not currently supported"
+#endif
+
+#define PALETTE_REGION_SIZE 8
+#define PALETTE_REGION_TOTAL_SIZE (PALETTE_REGION_SIZE * PALETTE_REGION_SIZE * PALETTE_REGION_SIZE)
+#define PALETTE_MAX_COMPRESSED_VARIANT_N 367
+
+#if PALETTE_REGION_SIZE != 8
+#error Unsupported Palette Region Size
+#endif
+
+#define PALETTES_PER_CHUNK_AXIS (CHUNK_SIZE / PALETTE_REGION_SIZE)
+#define PALETTES_PER_CHUNK (PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS)
+
+#define MAX_CHUNK_UPDATES_PER_FRAME 128
 
 // 1364 daxa_u32's
 // 10.65625 bytes per 8x8x8
@@ -19,7 +48,7 @@ struct TempVoxelChunkUniformity {
 // 8 bytes per 8x8x8
 struct PaletteHeader {
     daxa_u32 variant_n;
-    VoxelMalloc_Pointer blob_ptr;
+    daxa_u32 blob_ptr;
 };
 
 struct VoxelParentChunk {
@@ -48,11 +77,6 @@ DAXA_DECL_BUFFER_PTR(VoxelBlasTransform)
 struct VoxelLeafChunk {
     daxa_u32 flags;
     daxa_u32 update_index;
-    daxa_u32 uniformity_bits[3];
-    // 8 bytes per 8x8x8
-    VoxelMalloc_ChunkLocalPageSubAllocatorState sub_allocator_state;
-    // 8 bytes per 8x8x8
-    PaletteHeader palette_headers[PALETTES_PER_CHUNK];
 };
 DAXA_DECL_BUFFER_PTR(VoxelLeafChunk)
 
@@ -107,33 +131,21 @@ struct ChunkUpdate {
 };
 DAXA_DECL_BUFFER_PTR(ChunkUpdate)
 
-#define VOXEL_BUFFER_USE_N 3
-
 #define VOXELS_USE_BUFFERS(ptr_type, mode)                               \
     DAXA_TH_BUFFER_PTR(mode, ptr_type(VoxelWorldGlobals), voxel_globals) \
-    DAXA_TH_BUFFER_PTR(mode, ptr_type(VoxelLeafChunk), voxel_chunks)     \
-    DAXA_TH_BUFFER_PTR(mode, ptr_type(VoxelMallocPageAllocator), voxel_malloc_page_allocator)
+    DAXA_TH_BUFFER_PTR(mode, ptr_type(VoxelLeafChunk), voxel_chunks)
 
 #define VOXELS_USE_BUFFERS_PUSH_USES(ptr_type)                           \
     ptr_type(VoxelWorldGlobals) voxel_globals = push.uses.voxel_globals; \
-    ptr_type(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;      \
-    ptr_type(VoxelMallocPageAllocator) voxel_malloc_page_allocator = push.uses.voxel_malloc_page_allocator;
+    ptr_type(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;
 
-#define VOXELS_BUFFER_USES_ASSIGN(TaskHeadName, voxel_buffers)                                                       \
-    daxa::TaskViewVariant{std::pair{TaskHeadName::AT.voxel_globals, voxel_buffers.voxel_globals.task_resource}},     \
-        daxa::TaskViewVariant{std::pair{TaskHeadName::AT.voxel_chunks, voxel_buffers.voxel_chunks.task_resource}},   \
-        daxa::TaskViewVariant {                                                                                      \
-        std::pair { TaskHeadName::AT.voxel_malloc_page_allocator, voxel_buffers.voxel_malloc.task_allocator_buffer } \
+#define VOXELS_BUFFER_USES_ASSIGN(TaskHeadName, voxel_buffers)                                                   \
+    daxa::TaskViewVariant{std::pair{TaskHeadName::AT.voxel_globals, voxel_buffers.voxel_globals.task_resource}}, \
+        daxa::TaskViewVariant {                                                                                  \
+        std::pair { TaskHeadName::AT.voxel_chunks, voxel_buffers.voxel_chunks.task_resource }                    \
     }
 
-struct VoxelWorldOutput {
-    VoxelMallocPageAllocatorGpuOutput voxel_malloc_output;
-    // VoxelLeafChunkAllocatorGpuOutput voxel_leaf_chunk_output;
-    // VoxelParentChunkAllocatorGpuOutput voxel_parent_chunk_output;
-};
-
 struct VoxelBufferPtrs {
-    daxa_BufferPtr(VoxelMallocPageAllocator) allocator;
     daxa_BufferPtr(VoxelLeafChunk) voxel_chunks_ptr;
     daxa_BufferPtr(VoxelWorldGlobals) globals;
 };
@@ -144,13 +156,12 @@ struct VoxelRtBufferPtrs {
     daxa_u64 tlas;
 };
 struct VoxelRWBufferPtrs {
-    daxa_RWBufferPtr(VoxelMallocPageAllocator) allocator;
     daxa_RWBufferPtr(VoxelLeafChunk) voxel_chunks_ptr;
     daxa_RWBufferPtr(VoxelWorldGlobals) globals;
 };
 
-#define VOXELS_BUFFER_PTRS VoxelBufferPtrs(daxa_BufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), daxa_BufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_BufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
-#define VOXELS_RW_BUFFER_PTRS VoxelRWBufferPtrs(daxa_RWBufferPtr(VoxelMallocPageAllocator)(as_address(voxel_malloc_page_allocator)), daxa_RWBufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_RWBufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
+#define VOXELS_BUFFER_PTRS VoxelBufferPtrs(daxa_BufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_BufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
+#define VOXELS_RW_BUFFER_PTRS VoxelRWBufferPtrs(daxa_RWBufferPtr(VoxelLeafChunk)(as_address(voxel_chunks)), daxa_RWBufferPtr(VoxelWorldGlobals)(as_address(voxel_globals)))
 
 #define VOXELS_RT_BUFFER_PTRS VoxelRtBufferPtrs( \
     push.uses.geometry_pointers,                 \
@@ -169,7 +180,6 @@ struct VoxelWorldBuffers {
     TemporalBuffer voxel_chunks;
     TemporalBuffer chunk_updates;
     TemporalBuffer chunk_update_heap;
-    AllocatorBufferState<VoxelMallocPageAllocator> voxel_malloc;
 
     TemporalBuffer blas_geom_pointers;
     TemporalBuffer blas_attr_pointers;

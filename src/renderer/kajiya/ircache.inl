@@ -139,7 +139,6 @@ DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE, daxa_RWBufferPtr(IrcacheMetadata),
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_RWBufferPtr(daxa_u32vec4), dispatch_args)
 DAXA_DECL_TASK_HEAD_END
 struct IrcachePrepareTraceDispatchComputePush {
-    daxa_u32 use_hwrt;
     DAXA_TH_BLOB(IrcachePrepareTraceDispatchCompute, uses)
 };
 DAXA_DECL_TASK_HEAD_BEGIN(IrcacheResetCompute)
@@ -153,19 +152,6 @@ DAXA_TH_BUFFER(COMPUTE_SHADER_READ, dispatch_args)
 DAXA_DECL_TASK_HEAD_END
 struct IrcacheResetComputePush {
     DAXA_TH_BLOB(IrcacheResetCompute, uses)
-};
-DAXA_DECL_TASK_HEAD_BEGIN(IrcacheTraceAccessCompute)
-VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(VertexPacked), ircache_spatial_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_life_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(VertexPacked), ircache_reposition_proposal_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_BufferPtr(IrcacheMetadata), ircache_meta_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheAux), ircache_aux_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_entry_indirection_buf)
-DAXA_TH_BUFFER(COMPUTE_SHADER_READ, dispatch_args)
-DAXA_DECL_TASK_HEAD_END
-struct IrcacheTraceAccessComputePush {
-    DAXA_TH_BLOB(IrcacheTraceAccessCompute, uses)
 };
 DAXA_DECL_TASK_HEAD_BEGIN(IrcacheTraceAccessRt)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(daxa_BufferPtr(BlasGeom)), geometry_pointers)
@@ -182,26 +168,6 @@ DAXA_TH_BUFFER(RAY_TRACING_SHADER_READ, dispatch_args)
 DAXA_DECL_TASK_HEAD_END
 struct IrcacheTraceAccessRtPush {
     DAXA_TH_BLOB(IrcacheTraceAccessRt, uses)
-};
-DAXA_DECL_TASK_HEAD_BEGIN(IrcacheValidateCompute)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
-VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(VertexPacked), ircache_spatial_buf)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, CUBE, sky_cube_tex)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, transmittance_lut)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheCell), ircache_grid_meta_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_life_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(VertexPacked), ircache_reposition_proposal_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_reposition_proposal_count_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheMetadata), ircache_meta_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheAux), ircache_aux_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_pool_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_entry_indirection_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_entry_cell_buf)
-DAXA_TH_BUFFER(COMPUTE_SHADER_READ, dispatch_args)
-DAXA_DECL_TASK_HEAD_END
-struct IrcacheValidateComputePush {
-    DAXA_TH_BLOB(IrcacheValidateCompute, uses)
 };
 DAXA_DECL_TASK_HEAD_BEGIN(IrcacheValidateRt)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
@@ -225,26 +191,6 @@ DAXA_TH_BUFFER(COMPUTE_SHADER_READ, dispatch_args)
 DAXA_DECL_TASK_HEAD_END
 struct IrcacheValidateRtPush {
     DAXA_TH_BLOB(IrcacheValidateRt, uses)
-};
-DAXA_DECL_TASK_HEAD_BEGIN(TraceIrradianceCompute)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)
-VOXELS_USE_BUFFERS(daxa_BufferPtr, COMPUTE_SHADER_READ)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(VertexPacked), ircache_spatial_buf)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, CUBE, sky_cube_tex)
-DAXA_TH_IMAGE_INDEX(COMPUTE_SHADER_SAMPLED, REGULAR_2D, transmittance_lut)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheCell), ircache_grid_meta_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_life_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(VertexPacked), ircache_reposition_proposal_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_reposition_proposal_count_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheMetadata), ircache_meta_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(IrcacheAux), ircache_aux_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_pool_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(daxa_u32), ircache_entry_indirection_buf)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_RWBufferPtr(daxa_u32), ircache_entry_cell_buf)
-DAXA_TH_BUFFER(COMPUTE_SHADER_READ, dispatch_args)
-DAXA_DECL_TASK_HEAD_END
-struct TraceIrradianceComputePush {
-    DAXA_TH_BLOB(TraceIrradianceCompute, uses)
 };
 DAXA_DECL_TASK_HEAD_BEGIN(TraceIrradianceRt)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(GpuInput), gpu_input)

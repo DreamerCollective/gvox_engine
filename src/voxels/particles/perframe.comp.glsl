@@ -2,9 +2,7 @@
 
 DAXA_DECL_PUSH_CONSTANT(VoxelParticlePerframeComputePush, push)
 daxa_BufferPtr(GpuInput) gpu_input = push.uses.gpu_input;
-daxa_RWBufferPtr(GpuOutput) gpu_output = push.uses.gpu_output;
 daxa_RWBufferPtr(VoxelParticlesState) particles_state = push.uses.particles_state;
-VOXELS_USE_BUFFERS_PUSH_USES(daxa_RWBufferPtr)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(GrassStrandAllocator, grass_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(FlowerAllocator, flower_allocator)
 SIMPLE_STATIC_ALLOCATOR_BUFFERS_PUSH_USES(TreeParticleAllocator, tree_particle_allocator)
