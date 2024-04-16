@@ -472,6 +472,7 @@ void main() {
                     continue;
                 }
             } else {
+                // safeImageStore(rtr_debug_image, ivec2(px), vec4(vec3(wi.z < 1e-5), 1));
                 if (wi.z < 1e-5
                     // Discard hit samples which face away from the center pixel
                     || dot(sample_hit_normal_vs, -center_to_hit_vs) <= 0) {
@@ -610,10 +611,6 @@ void main() {
                     float mis_weight = max(1e-4, spec.pdf / (sample_ray_pdf + spec.pdf));
 
                     contrib_wt = rejection_bias * mis_weight * max(1e-10, spec_weight / bent_sample_pdf);
-
-                    if (pdf_i == 0) {
-                        safeImageStore(rtr_debug_image, ivec2(px), vec4(vec3(bent_sample_pdf / neighbor_sampling_pdf * spec.value_over_pdf * contrib_wt * pdf_influence), 1));
-                    }
 
                     contrib_accum += vec4(
                                          sample_radiance * bent_sample_pdf / neighbor_sampling_pdf * spec.value_over_pdf,

@@ -35,7 +35,7 @@ vec3 biased_secondary_ray_origin_ws_with_normal(in ViewRayContext vrc, vec3 norm
     vec3 ws_abs = abs(ray_hit_ws(vrc));
     float max_comp = max(max(ws_abs.x, ws_abs.y), max(ws_abs.z, -ray_hit_vs(vrc).z));
     vec3 origin = ray_hit_ws(vrc) + (normal - ray_dir_ws(vrc)) * max(1e-4, max_comp * 1e-6);
-#if PER_VOXEL_NORMALS
+#if PER_VOXEL_NORMALS && !RtrRestirResolveComputeShader
     return origin + normal * 1.5 * VOXEL_SIZE;
 #else
     return origin;
@@ -72,7 +72,7 @@ ViewRayContext vrc_from_uv_and_depth(daxa_BufferPtr(GpuInput) gpu_input, vec2 uv
     res.ray_hit_cs = vec4(uv_to_cs(uv), depth, 1.0);
     res.ray_hit_vs_h = deref(gpu_input).player.cam.sample_to_view * res.ray_hit_cs;
     res.ray_hit_ws_h = deref(gpu_input).player.cam.view_to_world * res.ray_hit_vs_h;
-#if PER_VOXEL_NORMALS
+#if PER_VOXEL_NORMALS && !RtrRestirResolveComputeShader
     res.ray_hit_ws_h = vec4(res.ray_hit_ws_h.xyz / res.ray_hit_ws_h.w, 1.0);
     res.ray_hit_ws_h.xyz = (floor(res.ray_hit_ws_h.xyz * VOXEL_SCL) + 0.5) * VOXEL_SIZE;
     res.ray_hit_vs_h = deref(gpu_input).player.cam.world_to_view * res.ray_hit_ws_h;
@@ -80,7 +80,7 @@ ViewRayContext vrc_from_uv_and_depth(daxa_BufferPtr(GpuInput) gpu_input, vec2 uv
     return res;
 }
 ViewRayContext vrc_from_uv_and_biased_depth(daxa_BufferPtr(GpuInput) gpu_input, vec2 uv, float depth) {
-#if PER_VOXEL_NORMALS
+#if PER_VOXEL_NORMALS && !RtrRestirResolveComputeShader
     // When using per-voxel normals, we want to ensure the depth represents one within a voxel.
     // We do this because we'll likely round the position to be the center of the voxel.
     const float BIAS = uintBitsToFloat(0x3f7ffe00); // uintBitsToFloat(0x3f7ffe00) == 0.999969482421875

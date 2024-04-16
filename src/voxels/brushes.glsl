@@ -537,9 +537,9 @@ void brush_light_ball(in out Voxel voxel) {
     float sd = sd_capsule(voxel_pos, brush_input.pos + brush_input.pos_offset, brush_input.prev_pos + brush_input.prev_pos_offset, 32.0 * VOXEL_SIZE);
     vec3 nrm = normalize(voxel_pos - (brush_input.pos + brush_input.pos_offset));
     if (sd < 0) {
-        voxel.material_type = 3;
-        voxel.color = vec3(0.95, 0.15, 0.05);
-        voxel.roughness = 0.9;
+        voxel.material_type = 1;
+        voxel.color = vec3(0.95, 0.05, 0.05);
+        voxel.roughness = 0.1;
     }
     if (sd < 2.5 * VOXEL_SIZE) {
         voxel.normal = vec3(0, 0, 1);
