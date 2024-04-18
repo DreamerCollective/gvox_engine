@@ -90,6 +90,8 @@ struct ChunkAllocComputePush {
 
 #if defined(__cplusplus)
 
+#include <set>
+
 struct CpuPaletteChunk {
     uint32_t has_air : 1 {};
     uint32_t variant_n{};
@@ -107,13 +109,14 @@ struct BlasChunk {
     uint32_t cull_mask;
     std::vector<BlasGeom> blas_geoms;
     std::vector<VoxelBrickAttribs> attrib_bricks;
-    bool needs_blas_rebuild = true;
 };
 
 struct CpuVoxelChunk {
     std::array<CpuPaletteChunk, PALETTES_PER_CHUNK> palette_chunks{};
     uint32_t blas_id;
 };
+
+using PackedDirtyChunkIndex = uint64_t;
 
 struct VoxelWorld {
     VoxelWorldBuffers buffers;
@@ -124,15 +127,22 @@ struct VoxelWorld {
     uint32_t test_entity_blas_id;
 
     std::vector<BlasChunk> blas_chunks;
+    std::vector<daxa::BlasId> tracked_blases;
     daxa::TaskBlas task_chunk_blases;
     TemporalBuffer staging_blas_geom_pointers;
     TemporalBuffer staging_blas_attr_pointers;
     TemporalBuffer staging_blas_transforms;
+    TemporalBuffer blas_instances_buffer;
+    std::set<PackedDirtyChunkIndex> dirty_chunks;
+
+    daxa::TlasBuildInfo tlas_build_info;
+    daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes;
+    std::array<daxa::TlasInstanceInfo, 1> blas_instance_info;
 
     bool sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset);
     void record_startup(GpuContext &gpu_context);
     void begin_frame(daxa::Device &device, GpuInput const &gpu_input);
-    void update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &device, GpuInput const &gpu_input);
+    void update_chunks(daxa::Device &device, GpuInput const &gpu_input);
     void record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles);
 };
 

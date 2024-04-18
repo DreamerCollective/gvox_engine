@@ -44,7 +44,7 @@ void main() {
     vec3 world_pos = vec3(0);
     vec3 vel_ws = vec3(0);
 
-    uvec3 chunk_n = uvec3(CHUNKS_PER_AXIS);
+    uvec3 chunk_n = uvec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
     PackedVoxel voxel_data = unpack_ray_payload(push.uses.geometry_pointers, push.uses.attribute_pointers, push.uses.blas_transforms, prd, Ray(ray_o, ray_d), world_pos, vel_ws);
     Voxel voxel = unpack_voxel(voxel_data);
 

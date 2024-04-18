@@ -16,7 +16,34 @@ daxa_RWBufferPtr(VoxelLeafChunk) voxel_chunks = push.uses.voxel_chunks;
 #define CHUNKS(i) deref(advance(voxel_chunks, i))
 #define INDIRECT deref(voxel_globals).indirect_dispatch
 
+uint chunk_index;
+
 void try_elect(in out VoxelChunkUpdateInfo work_item, in out uint update_index) {
+    if (work_item.brush_flags == BRUSH_FLAGS_WORLD_BRUSH) {
+        // reject certain worldgen chunks
+
+        // (const) number of chunks in each axis
+        uvec3 chunk_n = uvec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
+        // Chunk 3D index in leaf chunk space (0^3 - 31^3)
+        ivec3 chunk_i = work_item.i;
+        // Player chunk offset
+        ivec3 chunk_offset = work_item.chunk_offset;
+        // Wrapped chunk index in leaf chunk space (0^3 - 31^3)
+        ivec3 wrapped_chunk_i = imod3(chunk_i - imod3(chunk_offset - ivec3(chunk_n), ivec3(chunk_n)), ivec3(chunk_n));
+        // Leaf chunk position in world space
+        ivec3 world_chunk = chunk_offset + wrapped_chunk_i - ivec3(chunk_n / 2);
+
+        // [Chunk corner] Voxel position in world space (voxels)
+        ivec3 world_voxel = world_chunk * CHUNK_SIZE;
+        // [Chunk center] Voxel position in world space (meters)
+        vec3 voxel_pos = (vec3(world_voxel) + CHUNK_SIZE / 2 + 0.5) * VOXEL_SIZE;
+
+        // if (length(fract(voxel_pos / 64) - 0.5) * 64 - 10 - (CHUNK_SIZE * VOXEL_SIZE * 0.87) > 0) {
+        //     CHUNKS(chunk_index).flags |= CHUNK_FLAGS_ACCEL_GENERATED;
+        //     return;
+        // }
+    }
+
     uint prev_update_n = atomicAdd(VOXEL_WORLD.chunk_update_n, 1);
 
     // Check if the work item can be added
@@ -33,10 +60,10 @@ void try_elect(in out VoxelChunkUpdateInfo work_item, in out uint update_index) 
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
-    ivec3 chunk_n = ivec3(CHUNKS_PER_AXIS);
+    ivec3 chunk_n = ivec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
 
     VoxelChunkUpdateInfo terrain_work_item;
-    terrain_work_item.i = ivec3(gl_GlobalInvocationID.xyz) & (chunk_n - 1);
+    terrain_work_item.i = ivec3(gl_GlobalInvocationID.xyz) % chunk_n;
 
     ivec3 offset = (VOXEL_WORLD.offset >> ivec3(6 + LOG2_VOXEL_SIZE));
     ivec3 prev_offset = (VOXEL_WORLD.prev_offset >> ivec3(6 + LOG2_VOXEL_SIZE));
@@ -45,7 +72,7 @@ void main() {
     terrain_work_item.brush_flags = BRUSH_FLAGS_WORLD_BRUSH;
 
     // (const) number of chunks in each axis
-    uint chunk_index = calc_chunk_index_from_worldspace(terrain_work_item.i, chunk_n);
+    chunk_index = calc_chunk_index_from_worldspace(terrain_work_item.i, chunk_n);
 
     uint update_index = 0;
 
@@ -148,7 +175,7 @@ BrushInput brush_input;
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     // (const) number of chunks in each axis
-    chunk_n = uvec3(CHUNKS_PER_AXIS);
+    chunk_n = uvec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
     // Index in chunk_update_infos buffer
     temp_chunk_index = gl_GlobalInvocationID.z / CHUNK_SIZE;
     // Chunk 3D index in leaf chunk space (0^3 - 31^3)
@@ -353,7 +380,7 @@ vec3 generate_normal_from_geometry() {
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     // (const) number of chunks in each axis
-    chunk_n = uvec3(CHUNKS_PER_AXIS);
+    chunk_n = uvec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
     // Index in chunk_update_infos buffer
     temp_chunk_index = gl_GlobalInvocationID.z / CHUNK_SIZE;
     // Chunk 3D index in leaf chunk space (0^3 - 31^3)
@@ -483,7 +510,7 @@ void alloc_output(uint palette_region_voxel_index, uint compressed_size) {
 #define VOXEL_WORLD deref(voxel_globals)
 layout(local_size_x = PALETTE_REGION_SIZE, local_size_y = PALETTE_REGION_SIZE, local_size_z = PALETTE_REGION_SIZE) in;
 void main() {
-    uvec3 chunk_n = uvec3(CHUNKS_PER_AXIS);
+    uvec3 chunk_n = uvec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
     uint temp_chunk_index = gl_GlobalInvocationID.z / CHUNK_SIZE;
     ivec3 chunk_i = VOXEL_WORLD.chunk_update_infos[temp_chunk_index].i;
     if (chunk_i == INVALID_CHUNK_I) {

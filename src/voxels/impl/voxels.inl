@@ -6,8 +6,9 @@
 #define VOXELS_ORIGINAL_IMPL
 
 #define CHUNK_SIZE 64 // A chunk = 64^3 voxels
-#define CHUNKS_PER_AXIS 32
-#define CHUNKS_DISPATCH_SIZE (CHUNKS_PER_AXIS / 8)
+#define CHUNK_NX 32
+#define CHUNK_NY 32
+#define CHUNK_NZ 32
 
 #define LOG2_VOXEL_SIZE (-4)
 #if LOG2_VOXEL_SIZE <= 0
@@ -185,6 +186,7 @@ struct VoxelWorldBuffers {
     TemporalBuffer blas_attr_pointers;
     TemporalBuffer blas_transforms;
 
+    daxa::BufferId tlas_buffer;
     daxa::TlasId tlas;
     daxa::TaskTlas task_tlas;
 

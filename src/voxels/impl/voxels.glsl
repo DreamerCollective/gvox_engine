@@ -8,10 +8,8 @@
 
 // 3D Leaf Chunk index => uint index in buffer
 uint calc_chunk_index(daxa_BufferPtr(VoxelWorldGlobals) voxel_globals, uvec3 chunk_i, uvec3 chunk_n) {
-#if ENABLE_CHUNK_WRAPPING
     // Modulate the chunk index to be wrapped around relative to the chunk offset provided.
     chunk_i = uvec3((ivec3(chunk_i) + (deref(voxel_globals).offset >> ivec3(6 + LOG2_VOXEL_SIZE))) % ivec3(chunk_n));
-#endif
     uint chunk_index = chunk_i.x + chunk_i.y * chunk_n.x + chunk_i.z * chunk_n.x * chunk_n.y;
     return chunk_index;
 }

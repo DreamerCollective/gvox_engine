@@ -1,4 +1,5 @@
 #include "voxel_world.inl"
+#include <chrono>
 #include <fmt/format.h>
 
 #ifndef defer
@@ -17,19 +18,19 @@ deferrer<F> operator*(defer_dummy, F f) { return {f}; }
 
 static uint32_t calc_chunk_index(glm::uvec3 chunk_i, glm::ivec3 offset) {
     // Modulate the chunk index to be wrapped around relative to the chunk offset provided.
-    auto temp_chunk_i = (glm::ivec3(chunk_i) + (offset >> glm::ivec3(6 + LOG2_VOXEL_SIZE))) % glm::ivec3(CHUNKS_PER_AXIS);
+    auto temp_chunk_i = (glm::ivec3(chunk_i) + (offset >> glm::ivec3(6 + LOG2_VOXEL_SIZE))) % glm::ivec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ);
     if (temp_chunk_i.x < 0) {
-        temp_chunk_i.x += CHUNKS_PER_AXIS;
+        temp_chunk_i.x += CHUNK_NX;
     }
     if (temp_chunk_i.y < 0) {
-        temp_chunk_i.y += CHUNKS_PER_AXIS;
+        temp_chunk_i.y += CHUNK_NY;
     }
     if (temp_chunk_i.z < 0) {
-        temp_chunk_i.z += CHUNKS_PER_AXIS;
+        temp_chunk_i.z += CHUNK_NZ;
     }
     chunk_i = glm::uvec3(temp_chunk_i);
-    uint32_t chunk_index = chunk_i.x + chunk_i.y * CHUNKS_PER_AXIS + chunk_i.z * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
-    assert(chunk_index < 50000);
+    uint32_t chunk_index = chunk_i.x + chunk_i.y * CHUNK_NX + chunk_i.z * CHUNK_NX * CHUNK_NY;
+    assert(chunk_index < CHUNK_NX * CHUNK_NY * CHUNK_NZ);
     return chunk_index;
 }
 
@@ -206,7 +207,7 @@ auto test_entity_voxel(daxa_f32vec3 p, GpuInput const &gpu_input) -> Voxel {
 // }
 
 bool VoxelWorld::sample(daxa_f32vec3 pos, daxa_i32vec3 player_unit_offset) {
-    glm::vec3 offset = glm::vec3(std::bit_cast<glm::ivec3>(player_unit_offset) & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)) + glm::vec3(CHUNKS_PER_AXIS) * CHUNK_WORLDSPACE_SIZE * 0.5f;
+    glm::vec3 offset = glm::vec3(std::bit_cast<glm::ivec3>(player_unit_offset) & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)) + glm::vec3(CHUNK_NX, CHUNK_NY, CHUNK_NZ) * CHUNK_WORLDSPACE_SIZE * 0.5f;
     glm::uvec3 voxel_i = glm::uvec3(floor((std::bit_cast<glm::vec3>(pos) + glm::vec3(offset)) * float(VOXEL_SCL)));
     glm::uvec3 chunk_i = voxel_i / uint32_t(CHUNK_SIZE);
     uint32_t chunk_index = calc_chunk_index(chunk_i, std::bit_cast<glm::ivec3>(player_unit_offset));
@@ -240,14 +241,12 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
         .name = "voxel_globals",
     });
 
-    auto chunk_n = (CHUNKS_PER_AXIS);
-    chunk_n = chunk_n * chunk_n * chunk_n;
+    auto chunk_n = CHUNK_NX * CHUNK_NY * CHUNK_NZ;
     buffers.voxel_chunks = gpu_context.find_or_add_temporal_buffer({
         .size = sizeof(VoxelLeafChunk) * chunk_n,
         .name = "voxel_chunks",
     });
     voxel_chunks.resize(chunk_n);
-
 
     gpu_context.frame_task_graph.use_persistent_buffer(buffers.chunk_updates.task_resource);
     gpu_context.frame_task_graph.use_persistent_buffer(buffers.chunk_update_heap.task_resource);
@@ -270,8 +269,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
                 .clear_value = 0,
             });
 
-            auto chunk_n = (CHUNKS_PER_AXIS);
-            chunk_n = chunk_n * chunk_n * chunk_n;
+            auto chunk_n = CHUNK_NX * CHUNK_NY * CHUNK_NZ;
             ti.recorder.clear_buffer({
                 .buffer = buffers.voxel_chunks.task_resource.get_state().buffers[0],
                 .offset = 0,
@@ -331,6 +329,12 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .name = "staging_blas_transforms",
         });
 
+        blas_instances_buffer = gpu_context.find_or_add_temporal_buffer({
+            .size = sizeof(daxa_BlasInstanceData) * MAX_BLAS_N,
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // TODO
+            .name = "blas instances array buffer",
+        });
+
         daxa::TaskGraph temp_task_graph = daxa::TaskGraph({
             .device = gpu_context.device,
             .name = "temp_task_graph",
@@ -338,14 +342,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
 
         task_chunk_blases = daxa::TaskBlas({.name = "task_chunk_blases"});
 
-        /// create blas instances for tlas:
-        auto blas_instances_buffer = gpu_context.device.create_buffer({
-            .size = sizeof(daxa_BlasInstanceData) * MAX_BLAS_N,
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "blas instances array buffer",
-        });
-        defer { gpu_context.device.destroy_buffer(blas_instances_buffer); };
-        auto *blas_instances = gpu_context.device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer).value();
+        auto *blas_instances = gpu_context.device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer.resource_id).value();
         blas_chunks.reserve(MAX_BLAS_N);
         for (size_t blas_i = 0; blas_i < voxel_chunks.size(); ++blas_i) {
             auto &chunk = voxel_chunks[blas_i];
@@ -382,7 +379,7 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
             .blas_device_address = {},
         };
 
-        auto blas_instance_info = std::array{
+        blas_instance_info = std::array{
             daxa::TlasInstanceInfo{
                 .data = {}, // Ignored in get_acceleration_structure_build_sizes.
                 .count = static_cast<uint32_t>(blas_chunks.size()),
@@ -390,32 +387,43 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
                 .flags = daxa::GeometryFlagBits::OPAQUE,
             },
         };
-        auto tlas_build_info = daxa::TlasBuildInfo{
+        blas_instance_info[0].data = gpu_context.device.get_device_address(blas_instances_buffer.resource_id).value();
+        tlas_build_info = daxa::TlasBuildInfo{
             .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
             .dst_tlas = {}, // Ignored in get_acceleration_structure_build_sizes.
             .instances = blas_instance_info,
             .scratch_data = {}, // Ignored in get_acceleration_structure_build_sizes.
         };
-        auto tlas_build_sizes = gpu_context.device.get_tlas_build_sizes(tlas_build_info);
-        buffers.tlas = gpu_context.device.create_tlas({
+
+        tlas_build_sizes = gpu_context.device.get_tlas_build_sizes(tlas_build_info);
+        buffers.tlas_buffer = gpu_context.device.create_buffer({
             .size = tlas_build_sizes.acceleration_structure_size,
-            .name = "tlas",
-        });
-        auto tlas_scratch_buffer = gpu_context.device.create_buffer({
-            .size = tlas_build_sizes.build_scratch_size,
             .name = "tlas build scratch buffer",
         });
-        defer { gpu_context.device.destroy_buffer(tlas_scratch_buffer); };
-        tlas_build_info.dst_tlas = buffers.tlas;
-        tlas_build_info.scratch_data = gpu_context.device.get_device_address(tlas_scratch_buffer).value();
-        blas_instance_info[0].data = gpu_context.device.get_device_address(blas_instances_buffer).value();
+        buffers.tlas = gpu_context.device.create_tlas_from_buffer({
+            .tlas_info = {
+                .size = tlas_build_sizes.acceleration_structure_size,
+                .name = "blas",
+            },
+            .buffer_id = buffers.tlas_buffer,
+            .offset = 0,
+        });
         buffers.task_tlas = daxa::TaskTlas({.initial_tlas = {.tlas = std::array{buffers.tlas}}});
         temp_task_graph.use_persistent_tlas(buffers.task_tlas);
         temp_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskTlasAccess::BUILD_WRITE, buffers.task_tlas),
             },
-            .task = [&](daxa::TaskInterface const &ti) {
+            .task = [this](daxa::TaskInterface const &ti) {
+                auto tlas_scratch_buffer = ti.device.create_buffer({
+                    .size = tlas_build_sizes.build_scratch_size,
+                    .name = "tlas build scratch buffer",
+                });
+                ti.recorder.destroy_buffer_deferred(tlas_scratch_buffer);
+
+                tlas_build_info.dst_tlas = buffers.tlas;
+                tlas_build_info.scratch_data = ti.device.get_device_address(tlas_scratch_buffer).value();
+
                 ti.recorder.build_acceleration_structures({
                     .tlas_build_infos = std::array{tlas_build_info},
                 });
@@ -433,41 +441,40 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     gpu_context.frame_task_graph.use_persistent_buffer(buffers.blas_transforms.task_resource);
 }
 
-static constexpr auto chunk_index(int xi, int yi, int zi) {
-    return xi + yi * CHUNKS_PER_AXIS + zi * CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
+static constexpr auto get_chunk_index(int xi, int yi, int zi) -> int {
+    return xi + yi * CHUNK_NX + zi * CHUNK_NX * CHUNK_NY;
+}
+
+static constexpr auto positive_modulo(int i, int n) -> int {
+    return (i % n + n) % n;
 }
 
 void VoxelWorld::begin_frame(daxa::Device &device, GpuInput const &gpu_input) {
-    auto temp_task_graph = daxa::TaskGraph({
-        .device = device,
-        .name = "temp_task_graph",
-    });
-
-    update_chunks(temp_task_graph, device, gpu_input);
+    update_chunks(device, gpu_input);
 }
 
-void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &device, GpuInput const &gpu_input) {
+void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) {
+    // using Clock = std::chrono::high_resolution_clock;
+    // auto t0 = Clock::now();
+    // std::vector<std::pair<Clock::time_point, std::string>> time_points;
+
     auto const offset = (gpu_input.frame_index + 0) % (FRAMES_IN_FLIGHT + 1);
     auto const *output_heap = device.get_host_address_as<uint32_t>(buffers.chunk_update_heap.resource_id).value() + offset * MAX_CHUNK_UPDATES_PER_FRAME_VOXEL_COUNT;
     auto const *chunk_updates_ptr = device.get_host_address_as<ChunkUpdate>(buffers.chunk_updates.resource_id).value() + offset * MAX_CHUNK_UPDATES_PER_FRAME;
     auto chunk_updates = std::vector<ChunkUpdate>{};
     chunk_updates.resize(MAX_CHUNK_UPDATES_PER_FRAME);
     memcpy(chunk_updates.data(), chunk_updates_ptr, chunk_updates.size() * sizeof(ChunkUpdate));
+    // time_points.push_back({Clock::now(), "read-back chunk updates"});
 
     auto copied_bytes = 0u;
 
-    auto blas_instances_buffer = device.create_buffer({
-        .size = sizeof(daxa_BlasInstanceData) * blas_chunks.size(),
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-        .name = "blas instances array buffer",
-    });
-    defer { device.destroy_buffer(blas_instances_buffer); };
-    auto *blas_instances = device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer).value();
+    auto *blas_instances = device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer.resource_id).value();
 
     auto voxel_is_air = [](uint32_t packed_voxel_data) {
         auto material_type = (packed_voxel_data >> 0) & 3;
         return material_type == 0;
     };
+    dirty_chunks.clear();
 
     for (auto const &chunk_update : chunk_updates) {
         if (chunk_update.info.flags != 1) {
@@ -543,72 +550,94 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
         }
 
         {
-            auto chunk_xi = int(chunk_update.info.chunk_index / 1) % CHUNKS_PER_AXIS;
-            auto chunk_yi = int(chunk_update.info.chunk_index / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
-            auto chunk_zi = int(chunk_update.info.chunk_index / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS);
+            auto chunk_xi = int(chunk_update.info.chunk_index / 1) % CHUNK_NX;
+            auto chunk_yi = int(chunk_update.info.chunk_index / CHUNK_NX) % CHUNK_NY;
+            auto chunk_zi = int(chunk_update.info.chunk_index / CHUNK_NX / CHUNK_NY);
 
-            int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-            int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-            int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+            int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NX;
+            int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NY;
+            int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NZ;
 
             // mark neighbors as dirty
             if (nx_face_updated && chunk_xi_ws != 0) {
-                auto chunk_nxi = (chunk_xi - 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_nxi, chunk_yi, chunk_zi)].blas_id].needs_blas_rebuild = true;
+                auto chunk_nxi = positive_modulo(chunk_xi - 1, CHUNK_NX);
+                auto chunk_index = get_chunk_index(chunk_nxi, chunk_yi, chunk_zi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
             if (ny_face_updated && chunk_yi_ws != 0) {
-                auto chunk_nyi = (chunk_yi - 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_xi, chunk_nyi, chunk_zi)].blas_id].needs_blas_rebuild = true;
+                auto chunk_nyi = positive_modulo(chunk_yi - 1, CHUNK_NY);
+                auto chunk_index = get_chunk_index(chunk_xi, chunk_nyi, chunk_zi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
             if (nz_face_updated && chunk_zi_ws != 0) {
-                auto chunk_nzi = (chunk_zi - 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_xi, chunk_yi, chunk_nzi)].blas_id].needs_blas_rebuild = true;
+                auto chunk_nzi = positive_modulo(chunk_zi - 1, CHUNK_NZ);
+                auto chunk_index = get_chunk_index(chunk_xi, chunk_yi, chunk_nzi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
-            if (px_face_updated && chunk_xi_ws != (CHUNKS_PER_AXIS - 1)) {
-                auto chunk_nxi = (chunk_xi + 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_nxi, chunk_yi, chunk_zi)].blas_id].needs_blas_rebuild = true;
+            if (px_face_updated && chunk_xi_ws != (CHUNK_NX - 1)) {
+                auto chunk_nxi = (chunk_xi + 1) % CHUNK_NX;
+                auto chunk_index = get_chunk_index(chunk_nxi, chunk_yi, chunk_zi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
-            if (py_face_updated && chunk_yi_ws != (CHUNKS_PER_AXIS - 1)) {
-                auto chunk_nyi = (chunk_yi + 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_xi, chunk_nyi, chunk_zi)].blas_id].needs_blas_rebuild = true;
+            if (py_face_updated && chunk_yi_ws != (CHUNK_NY - 1)) {
+                auto chunk_nyi = (chunk_yi + 1) % CHUNK_NY;
+                auto chunk_index = get_chunk_index(chunk_xi, chunk_nyi, chunk_zi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
-            if (pz_face_updated && chunk_zi_ws != (CHUNKS_PER_AXIS - 1)) {
-                auto chunk_nzi = (chunk_zi + 1) & (CHUNKS_PER_AXIS - 1);
-                blas_chunks[voxel_chunks[chunk_index(chunk_xi, chunk_yi, chunk_nzi)].blas_id].needs_blas_rebuild = true;
+            if (pz_face_updated && chunk_zi_ws != (CHUNK_NZ - 1)) {
+                auto chunk_nzi = (chunk_zi + 1) % CHUNK_NZ;
+                auto chunk_index = get_chunk_index(chunk_xi, chunk_yi, chunk_nzi);
+                auto blas_index = voxel_chunks[chunk_index].blas_id;
+                dirty_chunks.insert((uint64_t(blas_index) << 32) | uint64_t(chunk_index));
             }
         }
 
-        blas_chunks[voxel_chunk.blas_id].needs_blas_rebuild = true;
+        dirty_chunks.insert((uint64_t(voxel_chunk.blas_id) << 32) | uint64_t(chunk_update.info.chunk_index));
     }
+    // time_points.push_back({Clock::now(), "process chunk updates"});
 
     // if (copied_bytes > 0) {
     //     debug_utils::Console::add_log(fmt::format("{} MB copied", double(copied_bytes) / 1'000'000.0));
     // }
 
-    for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
-        auto &voxel_chunk = voxel_chunks[chunk_i];
-        auto &blas_chunk = blas_chunks[voxel_chunk.blas_id];
+    auto chunks_moved = gpu_input.player.player_unit_offset.x != gpu_input.player.prev_unit_offset.x ||
+                        gpu_input.player.player_unit_offset.y != gpu_input.player.prev_unit_offset.y ||
+                        gpu_input.player.player_unit_offset.z != gpu_input.player.prev_unit_offset.z ||
+                        gpu_input.frame_index <= 10;
 
-        {
-            uint32_t chunk_xi = (chunk_i / 1) % CHUNKS_PER_AXIS;
-            uint32_t chunk_yi = (chunk_i / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
-            uint32_t chunk_zi = (chunk_i / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS;
+    if (chunks_moved) {
+        for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
+            auto &voxel_chunk = voxel_chunks[chunk_i];
+            auto &blas_chunk = blas_chunks[voxel_chunk.blas_id];
+
+            uint32_t chunk_xi = (chunk_i / 1) % CHUNK_NX;
+            uint32_t chunk_yi = (chunk_i / CHUNK_NX) % CHUNK_NY;
+            uint32_t chunk_zi = (chunk_i / CHUNK_NX / CHUNK_NY) % CHUNK_NZ;
             auto const CHUNK_WS_SIZE = float(CHUNK_SIZE * VOXEL_SIZE);
-            int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-            int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-            int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
+            int32_t chunk_xi_ws = (int32_t(chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NX;
+            int32_t chunk_yi_ws = (int32_t(chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NY;
+            int32_t chunk_zi_ws = (int32_t(chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) % CHUNK_NZ;
             blas_chunk.prev_position = blas_chunk.position;
             blas_chunk.position = {
-                chunk_xi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.x & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
-                chunk_yi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.y & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
-                chunk_zi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNKS_PER_AXIS / 2)) - (gpu_input.player.player_unit_offset.z & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_xi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNK_NX / 2)) - (gpu_input.player.player_unit_offset.x & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_yi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNK_NY / 2)) - (gpu_input.player.player_unit_offset.y & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
+                chunk_zi_ws * CHUNK_WS_SIZE - CHUNK_WS_SIZE * (float(CHUNK_NZ / 2)) - (gpu_input.player.player_unit_offset.z & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)),
             };
             blas_chunk.cull_mask = 0xff;
         }
+        // time_points.push_back({Clock::now(), "update chunk pos"});
+    }
 
-        if (!blas_chunk.needs_blas_rebuild) {
-            continue;
-        }
+    for (auto packed_dirty_chunk_index : dirty_chunks) {
+        auto chunk_i = packed_dirty_chunk_index & ((uint64_t(1) << 32) - 1);
+        auto &voxel_chunk = voxel_chunks[chunk_i];
+        auto &blas_chunk = blas_chunks[voxel_chunk.blas_id];
+
         blas_chunk.blas_geoms.clear();
         blas_chunk.attrib_bricks.clear();
         for (int32_t palette_zi = 0; palette_zi < PALETTES_PER_CHUNK_AXIS; ++palette_zi) {
@@ -627,17 +656,17 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
                             if ((nxi == -1 && palette_xi == 0) || (nxi == 1 && palette_xi == PALETTES_PER_CHUNK_AXIS - 1) ||
                                 (nyi == -1 && palette_yi == 0) || (nyi == 1 && palette_yi == PALETTES_PER_CHUNK_AXIS - 1) ||
                                 (nzi == -1 && palette_zi == 0) || (nzi == 1 && palette_zi == PALETTES_PER_CHUNK_AXIS - 1)) {
-                                auto neighbor_chunk_xi = (int32_t(chunk_i % CHUNKS_PER_AXIS) + nxi) & (CHUNKS_PER_AXIS - 1);
-                                auto neighbor_chunk_yi = (int32_t((chunk_i / CHUNKS_PER_AXIS) % CHUNKS_PER_AXIS) + nyi) & (CHUNKS_PER_AXIS - 1);
-                                auto neighbor_chunk_zi = (int32_t(chunk_i / CHUNKS_PER_AXIS / CHUNKS_PER_AXIS) + nzi) & (CHUNKS_PER_AXIS - 1);
-                                int32_t chunk_xi_ws = (int32_t(neighbor_chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-                                int32_t chunk_yi_ws = (int32_t(neighbor_chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-                                int32_t chunk_zi_ws = (int32_t(neighbor_chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE))) & (CHUNKS_PER_AXIS - 1);
-                                if ((nxi == -1 && chunk_xi_ws == (CHUNKS_PER_AXIS - 1)) || (nxi == 1 && chunk_xi_ws == 0) ||
-                                    (nyi == -1 && chunk_yi_ws == (CHUNKS_PER_AXIS - 1)) || (nyi == 1 && chunk_yi_ws == 0) ||
-                                    (nzi == -1 && chunk_zi_ws == (CHUNKS_PER_AXIS - 1)) || (nzi == 1 && chunk_zi_ws == 0))
+                                auto neighbor_chunk_xi = positive_modulo(int32_t(chunk_i % CHUNK_NX) + nxi, CHUNK_NX);
+                                auto neighbor_chunk_yi = positive_modulo(int32_t((chunk_i / CHUNK_NX) % CHUNK_NY) + nyi, CHUNK_NY);
+                                auto neighbor_chunk_zi = positive_modulo(int32_t(chunk_i / CHUNK_NX / CHUNK_NY) + nzi, CHUNK_NZ);
+                                int32_t chunk_xi_ws = positive_modulo(int32_t(neighbor_chunk_xi) - (gpu_input.player.player_unit_offset.x >> (6 + LOG2_VOXEL_SIZE)), CHUNK_NX);
+                                int32_t chunk_yi_ws = positive_modulo(int32_t(neighbor_chunk_yi) - (gpu_input.player.player_unit_offset.y >> (6 + LOG2_VOXEL_SIZE)), CHUNK_NY);
+                                int32_t chunk_zi_ws = positive_modulo(int32_t(neighbor_chunk_zi) - (gpu_input.player.player_unit_offset.z >> (6 + LOG2_VOXEL_SIZE)), CHUNK_NZ);
+                                if ((nxi == -1 && chunk_xi_ws == (CHUNK_NX - 1)) || (nxi == 1 && chunk_xi_ws == 0) ||
+                                    (nyi == -1 && chunk_yi_ws == (CHUNK_NY - 1)) || (nyi == 1 && chunk_yi_ws == 0) ||
+                                    (nzi == -1 && chunk_zi_ws == (CHUNK_NZ - 1)) || (nzi == 1 && chunk_zi_ws == 0))
                                     continue;
-                                auto &neighbor_chunk = voxel_chunks[chunk_index(neighbor_chunk_xi, neighbor_chunk_yi, neighbor_chunk_zi)];
+                                auto &neighbor_chunk = voxel_chunks[get_chunk_index(neighbor_chunk_xi, neighbor_chunk_yi, neighbor_chunk_zi)];
                                 auto neighbor_palette_xi = (palette_xi + nxi) & (PALETTES_PER_CHUNK_AXIS - 1);
                                 auto neighbor_palette_yi = (palette_yi + nyi) & (PALETTES_PER_CHUNK_AXIS - 1);
                                 auto neighbor_palette_zi = (palette_zi + nzi) & (PALETTES_PER_CHUNK_AXIS - 1);
@@ -689,6 +718,7 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
             }
         }
     }
+    // time_points.push_back({Clock::now(), "update chunk geom"});
 
     {
         auto &blas_chunk = blas_chunks[test_entity_blas_id];
@@ -700,7 +730,7 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
         };
         blas_chunk.cull_mask = 0x01;
 
-        blas_chunk.needs_blas_rebuild = true;
+        dirty_chunks.insert(uint64_t(test_entity_blas_id) << 32);
         blas_chunk.blas_geoms.clear();
         blas_chunk.attrib_bricks.clear();
 
@@ -753,16 +783,14 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
             }
         }
     }
+    // time_points.push_back({Clock::now(), "update player chunk"});
 
     auto geom_pointers_host_ptr = device.get_host_address_as<daxa::DeviceAddress>(staging_blas_geom_pointers.resource_id).value();
     auto attr_pointers_host_ptr = device.get_host_address_as<daxa::DeviceAddress>(staging_blas_attr_pointers.resource_id).value();
     auto acceleration_structure_scratch_offset_alignment = device.properties().acceleration_structure_properties.value().min_acceleration_structure_scratch_offset_alignment;
-    auto tracked_blases = std::vector<daxa::BlasId>{};
-    for (uint64_t blas_i = 0; blas_i < blas_chunks.size(); ++blas_i) {
+    for (auto packed_dirty_chunk_index : dirty_chunks) {
+        auto blas_i = uint32_t(packed_dirty_chunk_index >> 32);
         auto &blas_chunk = blas_chunks[blas_i];
-        if (!blas_chunk.needs_blas_rebuild) {
-            continue;
-        }
         if (blas_chunk.blas_geoms.empty()) {
             continue;
         }
@@ -827,25 +855,23 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
             .offset = 0,
         });
         blas_chunk.blas_build_info.dst_blas = blas_chunk.blas;
-        tracked_blases.push_back(blas_chunk.blas);
     }
+    // time_points.push_back({Clock::now(), "create new blas buffers"});
 
+    tracked_blases.clear();
     for (uint64_t blas_i = 0; blas_i < blas_chunks.size(); ++blas_i) {
         auto &blas_chunk = blas_chunks[blas_i];
         if (blas_chunk.blas_geoms.empty()) {
             continue;
         }
-        auto blas_iter = std::find(tracked_blases.begin(), tracked_blases.end(), blas_chunk.blas);
-        if (blas_iter == tracked_blases.end()) {
-            tracked_blases.push_back(blas_chunk.blas);
-        }
+        tracked_blases.push_back(blas_chunk.blas);
     }
     task_chunk_blases.set_blas({.blas = tracked_blases});
-    temp_task_graph.use_persistent_blas(task_chunk_blases);
+    // time_points.push_back({Clock::now(), "track blases"});
 
     auto blas_transforms_host_ptr = device.get_host_address_as<VoxelBlasTransform>(staging_blas_transforms.resource_id).value();
 
-    auto blas_instance_info = std::array{
+    blas_instance_info = std::array{
         daxa::TlasInstanceInfo{
             .data = {}, // Ignored in get_acceleration_structure_build_sizes.
             .count = static_cast<uint32_t>(blas_chunks.size()),
@@ -854,7 +880,8 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
         },
     };
 
-    for (uint32_t blas_i = 0; blas_i < blas_chunks.size(); ++blas_i) {
+    for (auto packed_dirty_chunk_index : dirty_chunks) {
+        auto blas_i = uint32_t(packed_dirty_chunk_index >> 32);
         auto &blas_chunk = blas_chunks[blas_i];
         blas_transforms_host_ptr[blas_i].pos = blas_chunk.position;
         blas_transforms_host_ptr[blas_i].vel = blas_chunk.prev_position - blas_chunk.position;
@@ -871,14 +898,50 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
             .blas_device_address = device.get_device_address(blas_chunk.blas).value(),
         };
     }
+    // time_points.push_back({Clock::now(), "update blas instances"});
 
-    temp_task_graph.use_persistent_buffer(staging_blas_geom_pointers.task_resource);
-    temp_task_graph.use_persistent_buffer(buffers.blas_geom_pointers.task_resource);
-    temp_task_graph.use_persistent_buffer(staging_blas_attr_pointers.task_resource);
-    temp_task_graph.use_persistent_buffer(buffers.blas_attr_pointers.task_resource);
-    temp_task_graph.use_persistent_buffer(staging_blas_transforms.task_resource);
-    temp_task_graph.use_persistent_buffer(buffers.blas_transforms.task_resource);
-    temp_task_graph.add_task({
+    blas_instance_info[0].data = device.get_device_address(blas_instances_buffer.resource_id).value();
+    tlas_build_info = daxa::TlasBuildInfo{
+        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
+        .dst_tlas = {}, // Ignored in get_acceleration_structure_build_sizes.
+        .instances = blas_instance_info,
+        .scratch_data = {}, // Ignored in get_acceleration_structure_build_sizes.
+    };
+    tlas_build_sizes = device.get_tlas_build_sizes(tlas_build_info);
+    if (!buffers.tlas.is_empty()) {
+        device.destroy_tlas(buffers.tlas);
+        device.destroy_buffer(buffers.tlas_buffer);
+    }
+    buffers.tlas_buffer = device.create_buffer({
+        .size = tlas_build_sizes.acceleration_structure_size,
+        .name = "tlas build scratch buffer",
+    });
+    buffers.tlas = device.create_tlas_from_buffer({
+        .tlas_info = {
+            .size = tlas_build_sizes.acceleration_structure_size,
+            .name = "tlas",
+        },
+        .buffer_id = buffers.tlas_buffer,
+        .offset = 0,
+    });
+    buffers.task_tlas.set_tlas({.tlas = std::array{buffers.tlas}});
+
+    // time_points.push_back({Clock::now(), "create tlas"});
+    // auto t1 = Clock::now();
+    // debug_utils::DebugDisplay::set_debug_string("Update Chunks (total)", fmt::format("{} ms", std::chrono::duration<float, std::milli>(t1 - t0).count()));
+    // auto prev_time_point = t0;
+    // for (auto const &[time_point, name] : time_points) {
+    //     debug_utils::DebugDisplay::set_debug_string(fmt::format("Update Chunks ({})", name), fmt::format("{} ms", std::chrono::duration<float, std::milli>(time_point - prev_time_point).count()));
+    //     prev_time_point = time_point;
+    // }
+}
+
+void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles) {
+    gpu_context.frame_task_graph.use_persistent_blas(task_chunk_blases);
+    gpu_context.frame_task_graph.use_persistent_buffer(staging_blas_geom_pointers.task_resource);
+    gpu_context.frame_task_graph.use_persistent_buffer(staging_blas_attr_pointers.task_resource);
+    gpu_context.frame_task_graph.use_persistent_buffer(staging_blas_transforms.task_resource);
+    gpu_context.frame_task_graph.add_task({
         .attachments = {
             daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_geom_pointers.task_resource),
             daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_geom_pointers.task_resource),
@@ -887,7 +950,7 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
             daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, staging_blas_transforms.task_resource),
             daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, buffers.blas_transforms.task_resource),
         },
-        .task = [&](daxa::TaskInterface const &ti) {
+        .task = [this](daxa::TaskInterface const &ti) {
             ti.recorder.copy_buffer_to_buffer({
                 .src_buffer = ti.get(daxa::TaskBufferAttachmentIndex{0}).ids[0],
                 .dst_buffer = ti.get(daxa::TaskBufferAttachmentIndex{1}).ids[0],
@@ -906,11 +969,9 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
 
             // NOTE(grundlett): Hacky way of not needing to sync on these buffers...
 
-            for (uint64_t blas_i = 0; blas_i < blas_chunks.size(); ++blas_i) {
+            for (auto packed_dirty_chunk_index : dirty_chunks) {
+                auto blas_i = uint32_t(packed_dirty_chunk_index >> 32);
                 auto &blas_chunk = blas_chunks[blas_i];
-                if (!blas_chunk.needs_blas_rebuild) {
-                    continue;
-                }
                 if (blas_chunk.blas_geoms.empty()) {
                     continue;
                 }
@@ -921,7 +982,7 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
                     .name = "staging_buffer",
                 });
                 ti.recorder.destroy_buffer_deferred(staging_buffer);
-                auto staging_ptr = device.get_host_address_as<uint8_t>(staging_buffer).value();
+                auto staging_ptr = ti.device.get_host_address_as<uint8_t>(staging_buffer).value();
                 auto geom_host_ptr = reinterpret_cast<BlasGeom *>(staging_ptr + 0);
                 auto attr_host_ptr = reinterpret_cast<VoxelBrickAttribs *>(staging_ptr + sizeof(BlasGeom) * blas_chunk.blas_geoms.size());
                 std::copy(blas_chunk.blas_geoms.begin(), blas_chunk.blas_geoms.end(), geom_host_ptr);
@@ -942,17 +1003,18 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
         .name = "copy pointers",
     });
 
-    temp_task_graph.add_task({
+    gpu_context.frame_task_graph.add_task({
         .attachments = {
             daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, buffers.blas_transforms.task_resource),
             daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_WRITE, task_chunk_blases),
         },
-        .task = [&](daxa::TaskInterface const &ti) {
-            for (uint64_t blas_i = 0; blas_i < blas_chunks.size(); ++blas_i) {
+        .task = [this](daxa::TaskInterface const &ti) {
+            for (auto packed_dirty_chunk_index : dirty_chunks) {
+                auto blas_i = uint32_t(packed_dirty_chunk_index >> 32);
                 auto &blas_chunk = blas_chunks[blas_i];
 
-                if (!blas_chunk.blas_geoms.empty() && blas_chunk.needs_blas_rebuild) {
-                    auto geom_dev_ptr = device.get_device_address(blas_chunk.geom_buffer).value();
+                if (!blas_chunk.blas_geoms.empty()) {
+                    auto geom_dev_ptr = ti.device.get_device_address(blas_chunk.geom_buffer).value();
                     auto geometry = std::array{
                         daxa::BlasAabbGeometryInfo{
                             .data = geom_dev_ptr,
@@ -966,42 +1028,26 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
                         .blas_build_infos = std::array{blas_chunk.blas_build_info},
                     });
                 }
-                blas_chunk.needs_blas_rebuild = false;
             }
         },
         .name = "blas build",
     });
 
-    blas_instance_info[0].data = device.get_device_address(blas_instances_buffer).value();
-    auto tlas_build_info = daxa::TlasBuildInfo{
-        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
-        .dst_tlas = {}, // Ignored in get_acceleration_structure_build_sizes.
-        .instances = blas_instance_info,
-        .scratch_data = {}, // Ignored in get_acceleration_structure_build_sizes.
-    };
-    auto tlas_build_sizes = device.get_tlas_build_sizes(tlas_build_info);
-    if (!buffers.tlas.is_empty()) {
-        device.destroy_tlas(buffers.tlas);
-    }
-    buffers.tlas = device.create_tlas({
-        .size = tlas_build_sizes.acceleration_structure_size,
-        .name = "tlas",
-    });
-    buffers.task_tlas.set_tlas({.tlas = std::array{buffers.tlas}});
-    auto tlas_scratch_buffer = device.create_buffer({
-        .size = tlas_build_sizes.build_scratch_size,
-        .name = "tlas build scratch buffer",
-    });
-    defer { device.destroy_buffer(tlas_scratch_buffer); };
-    tlas_build_info.dst_tlas = buffers.tlas;
-    tlas_build_info.scratch_data = device.get_device_address(tlas_scratch_buffer).value();
-    temp_task_graph.use_persistent_tlas(buffers.task_tlas);
-    temp_task_graph.add_task({
+    gpu_context.frame_task_graph.add_task({
         .attachments = {
             daxa::inl_attachment(daxa::TaskBlasAccess::BUILD_READ, task_chunk_blases),
             daxa::inl_attachment(daxa::TaskTlasAccess::BUILD_WRITE, buffers.task_tlas),
         },
-        .task = [&](daxa::TaskInterface const &ti) {
+        .task = [this](daxa::TaskInterface const &ti) {
+            auto tlas_scratch_buffer = ti.device.create_buffer({
+                .size = tlas_build_sizes.build_scratch_size,
+                .name = "tlas build scratch buffer",
+            });
+            ti.recorder.destroy_buffer_deferred(tlas_scratch_buffer);
+
+            tlas_build_info.dst_tlas = buffers.tlas;
+            tlas_build_info.scratch_data = ti.device.get_device_address(tlas_scratch_buffer).value();
+
             ti.recorder.build_acceleration_structures({
                 .tlas_build_infos = std::array{tlas_build_info},
             });
@@ -1009,12 +1055,6 @@ void VoxelWorld::update_chunks(daxa::TaskGraph &temp_task_graph, daxa::Device &d
         .name = "tlas build",
     });
 
-    temp_task_graph.submit({});
-    temp_task_graph.complete({});
-    temp_task_graph.execute({});
-}
-
-void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task_gvox_model_buffer, VoxelParticles &particles) {
     gpu_context.add(ComputeTask<VoxelWorldPerframeCompute::Task, VoxelWorldPerframeComputePush, NoTaskInfo>{
         .source = daxa::ShaderFile{"voxels/impl/perframe.comp.glsl"},
         .views = std::array{
@@ -1045,8 +1085,7 @@ void VoxelWorld::record_frame(GpuContext &gpu_context, daxa::TaskBufferView task
         .callback_ = [](daxa::TaskInterface const &ti, daxa::ComputePipeline &pipeline, PerChunkComputePush &push, NoTaskInfo const &) {
             ti.recorder.set_pipeline(pipeline);
             set_push_constant(ti, push);
-            auto const dispatch_size = CHUNKS_DISPATCH_SIZE;
-            ti.recorder.dispatch({dispatch_size, dispatch_size, dispatch_size});
+            ti.recorder.dispatch({CHUNK_NX / 8, CHUNK_NY / 8, CHUNK_NZ / 8});
         },
     });
 

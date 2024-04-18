@@ -435,7 +435,7 @@ void brushgen_world(in out Voxel voxel) {
         // if (voxel.material_type != 0) {
         //     voxel.material_type = 2;
         // }
-        if (voxel_pos.z == -1.0 * VOXEL_SIZE) {
+        if (voxel_pos.z <= -1.0 * VOXEL_SIZE && voxel_pos.z >= -2.0 * VOXEL_SIZE) {
             voxel.color = vec3(0.1);
             voxel.material_type = 1;
         }
@@ -448,8 +448,8 @@ void brushgen_world(in out Voxel voxel) {
         brushgen_planet(voxel);
     } else if (true) { // Terrain world
         brushgen_world_terrain(voxel);
-    } else if (true) { // Ball world (each ball is centered on a chunk center)
-        if (length(fract(voxel_pos / 8) - 0.5) < 0.15) {
+    } else if (true) { // Ball world
+        if (length(fract(voxel_pos / 64) - 0.5) * 64 - 10 < 0) {
             voxel.material_type = 1;
             voxel.color = vec3(0.1);
             voxel.roughness = 0.5;
