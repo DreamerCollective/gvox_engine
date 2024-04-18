@@ -218,7 +218,8 @@ void main() {
 
     rand_seed(voxel_i.x + voxel_i.y * 1000 + voxel_i.z * 1000 * 1000);
 
-    Voxel result = Voxel(0, 0, vec3(0, 0, 1), vec3(0));
+    PackedVoxel packed_result = PackedVoxel(PACKED_NULL_VOXEL);
+    Voxel result = unpack_voxel(packed_result);
 
     if ((brush_flags & BRUSH_FLAGS_WORLD_BRUSH) != 0) {
         brushgen_world(result);
@@ -233,7 +234,7 @@ void main() {
     //     brushgen_particles(col, id);
     // }
 
-    PackedVoxel packed_result = pack_voxel(result);
+    packed_result = pack_voxel(result);
     // result.col_and_id = vec4_to_uint_rgba8(vec4(col, 0.0)) | (id << 0x18);
     deref(temp_voxel_chunk_ptr).voxels[inchunk_voxel_i.x + inchunk_voxel_i.y * CHUNK_SIZE + inchunk_voxel_i.z * CHUNK_SIZE * CHUNK_SIZE] = packed_result;
 }
@@ -424,31 +425,33 @@ void main() {
     rand_seed(voxel_i.x + voxel_i.y * 1000 + voxel_i.z * 1000 * 1000);
 
     PackedVoxel packed_result = deref(temp_voxel_chunk_ptr).voxels[inchunk_voxel_i.x + inchunk_voxel_i.y * CHUNK_SIZE + inchunk_voxel_i.z * CHUNK_SIZE * CHUNK_SIZE];
-    Voxel result = unpack_voxel(packed_result);
 
-    if (result.material_type == 0) {
-        result.normal = vec3(0, 0, 1);
-        result.color = vec3(0.0);
-        result.roughness = 0;
-    } else {
-        bool is_occluded = !has_air_neighbor();
-        if (is_occluded) {
-            // nullify normal
-            result.normal = vec3(0, 0, 1);
-            // result.color = vec3(0.9);
+    if ((packed_result.data & PACKED_NULL_VOXEL_MASK) != PACKED_NULL_VOXEL) {
+        Voxel result = unpack_voxel(packed_result);
+        if (result.material_type == 0) {
+            result.normal = GENERATE_NORMAL;
+            result.color = vec3(0.0);
+            result.roughness = 0;
         } else {
-            // potentially generate a normal
-            // if the voxel normal is the "null" normal AKA up
-            // bool generate_normal = true;
-            bool generate_normal = (result.normal == unpack_voxel(pack_voxel(Voxel(0, 0, vec3(0, 0, 1), vec3(0)))).normal);
-            if (generate_normal) {
-                result.normal = generate_normal_from_geometry();
+            bool is_occluded = !has_air_neighbor();
+            if (is_occluded) {
+                // nullify normal
+                result.normal = GENERATE_NORMAL;
+                // result.color = vec3(0.9);
+            } else {
+                // potentially generate a normal
+                // if the voxel normal is the "null" normal AKA up
+                // bool generate_normal = true;
+                bool generate_normal = dot(result.normal, unpack_voxel(pack_voxel(Voxel(0, 0, GENERATE_NORMAL, vec3(0)))).normal) > 0.99;
+                if (generate_normal) {
+                    result.normal = generate_normal_from_geometry();
+                }
+                result.normal = normalize(result.normal);
             }
-            result.normal = normalize(result.normal);
         }
+        packed_result = pack_voxel(result);
     }
 
-    packed_result = pack_voxel(result);
     // result.col_and_id = vec4_to_uint_rgba8(vec4(col, 0.0)) | (id << 0x18);
     deref(temp_voxel_chunk_ptr).voxels[inchunk_voxel_i.x + inchunk_voxel_i.y * CHUNK_SIZE + inchunk_voxel_i.z * CHUNK_SIZE * CHUNK_SIZE] = packed_result;
 }

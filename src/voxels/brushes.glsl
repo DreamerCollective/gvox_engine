@@ -79,7 +79,7 @@ void sd_spruce_branch(in out TreeSDFNrm val, in vec3 p, in vec3 origin, in vec3 
 }
 
 TreeSDFNrm sd_spruce_tree(in vec3 p, in vec3 seed) {
-    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, vec3(0, 0, 1), vec3(0, 0, 1));
+    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, GENERATE_NORMAL, GENERATE_NORMAL);
     val.wood = min(val.wood, sd_capsule(p, vec3(0, 0, 0), vec3(0, 0, 4.5), 0.15));
     val.leaves = min(val.leaves, sd_capsule(p, vec3(0, 0, 4.5), vec3(0, 0, 5.0), 0.15));
     for (uint i = 0; i < 5; ++i) {
@@ -381,6 +381,8 @@ void brushgen_planet(in out Voxel voxel) {
 #define GEN_MODEL 0
 
 void brushgen_world(in out Voxel voxel) {
+    // force air
+    voxel.roughness = 0.0;
     if (false) { // Mandelbulb world
         vec3 mandelbulb_color;
         if (mandelbulb((voxel_pos / 64 - 1) * 1, mandelbulb_color)) {
@@ -438,6 +440,7 @@ void brushgen_world(in out Voxel voxel) {
         if (voxel_pos.z <= -1.0 * VOXEL_SIZE && voxel_pos.z >= -2.0 * VOXEL_SIZE) {
             voxel.color = vec3(0.1);
             voxel.material_type = 1;
+            voxel.normal = vec3(0, 0, 1);
         }
 
         // if (voxel.material_type == 1) {
@@ -473,7 +476,7 @@ void brush_remove_grass(in out Voxel voxel) {
         voxel.material_type = 0;
     }
     if (sd < 2.5 * VOXEL_SIZE) {
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     }
 }
 
@@ -484,19 +487,11 @@ void brush_remove_ball(in out Voxel voxel) {
         voxel.material_type = 0;
     }
     if (sd < 2.5 * VOXEL_SIZE) {
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     }
 }
 
 void brushgen_a(in out Voxel voxel) {
-    PackedVoxel voxel_data = PackedVoxel(0);
-    Voxel prev_voxel = unpack_voxel(voxel_data);
-
-    voxel.color = prev_voxel.color;
-    voxel.material_type = prev_voxel.material_type;
-    voxel.normal = prev_voxel.normal;
-    voxel.roughness = prev_voxel.roughness;
-
     // brush_remove_grass(voxel);
     brush_remove_ball(voxel);
 }
@@ -515,7 +510,7 @@ void brush_grass_ball(in out Voxel voxel) {
         }
     }
     if (sd < 2.5 * VOXEL_SIZE) {
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     }
 }
 void brush_flowers(in out Voxel voxel) {
@@ -528,7 +523,7 @@ void brush_flowers(in out Voxel voxel) {
             voxel.color = pow(vec3(85, 166, 78) / 255.0 * 0.5, vec3(2.2));
             voxel.material_type = 1;
             voxel.roughness = 1.0;
-            voxel.normal = vec3(0, 0, 1);
+            voxel.normal = GENERATE_NORMAL;
             spawn_flower(voxel, FLOWER_TYPE_DANDELION);
         }
     }
@@ -542,7 +537,7 @@ void brush_light_ball(in out Voxel voxel) {
         voxel.roughness = 0.1;
     }
     if (sd < 2.5 * VOXEL_SIZE) {
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     }
 }
 void brush_lantern(in out Voxel voxel) {
@@ -562,12 +557,12 @@ void brush_lantern(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(0.05, 0.05, 0.05);
         voxel.roughness = 0.9;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     } else if (sd_flame < 0) {
         voxel.material_type = 3;
         voxel.color = vec3(0.95, 0.35, 0.05);
         voxel.roughness = 0.9;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     }
 }
 void brush_fire(in out Voxel voxel) {
@@ -585,12 +580,12 @@ void brush_fire(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(0.05, 0.05, 0.05);
         voxel.roughness = 0.9;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     } else if (sd_flame < 0) {
         voxel.material_type = 3;
         voxel.color = vec3(0.95, 0.2 + floor((flame_rand + voxel_pos.z - lantern_c.z) * 2.0) * 0.05, 0.05);
         voxel.roughness = 0.3 + flame_rand * 0.3;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
         if (sd_flame > -VOXEL_SIZE) {
             spawn_fire_particle(voxel);
         }
@@ -612,12 +607,12 @@ void brush_torch(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.9;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     } else if (sd_flame < 0) {
         voxel.material_type = 3;
         voxel.color = vec3(0.95, 0.15, 0.05);
         voxel.roughness = 0.3 + flame_rand * 0.3;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
 
         if (sd_flame > -VOXEL_SIZE) {
             spawn_fire_particle(voxel);
@@ -645,7 +640,7 @@ void sd_maple_branch(in out TreeSDFNrm val, in vec3 p, in vec3 origin, in vec3 d
 }
 
 TreeSDFNrm sd_maple_tree(in vec3 p, in vec3 seed) {
-    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, vec3(0, 0, 1), vec3(0, 0, 1));
+    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, GENERATE_NORMAL, GENERATE_NORMAL);
 
     float sd_trunk_base = sd_round_cone(
         p,
@@ -695,7 +690,7 @@ void brush_maple_tree(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     } else if (tree.leaves * 5.0 + leaf_rand * 15.0 < 0) {
         voxel.material_type = 1;
         // voxel.color = vec3(.28, .8, .15) * 0.5;
@@ -722,7 +717,7 @@ void brush_spruce_tree(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = GENERATE_NORMAL;
     } else if (tree.leaves + leaf_rand * 0.05 < 0) {
         voxel.material_type = 1;
         voxel.color = vec3(.14, .2, .07);
@@ -757,7 +752,7 @@ void sd_spruce_tree_big_branch(in out TreeSDFNrm val, in vec3 p, in vec3 origin,
 }
 
 TreeSDFNrm sd_spruce_tree_big(in vec3 p, in vec3 seed) {
-    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, vec3(0, 0, 1), vec3(0, 0, 1));
+    TreeSDFNrm val = TreeSDFNrm(1e5, 1e5, GENERATE_NORMAL, GENERATE_NORMAL);
 
     float sd_trunk_base = sd_round_cone(
         p,
@@ -807,7 +802,7 @@ void brush_spruce_tree_big(in out Voxel voxel) {
         voxel.material_type = 1;
         voxel.color = vec3(.22, .13, .05);
         voxel.roughness = 0.99;
-        voxel.normal = vec3(0, 0, 1);
+        voxel.normal = vec3(0, 0, -1);
     } else if (tree.leaves * 5.0 < 0) {
         voxel.material_type = 1;
         // voxel.color = vec3(.28, .8, .15) * 0.5;
@@ -821,14 +816,6 @@ void brush_spruce_tree_big(in out Voxel voxel) {
 }
 
 void brushgen_b(in out Voxel voxel) {
-    PackedVoxel voxel_data = PackedVoxel(0);
-    Voxel prev_voxel = unpack_voxel(voxel_data);
-
-    voxel.color = prev_voxel.color;
-    voxel.material_type = prev_voxel.material_type;
-    voxel.normal = prev_voxel.normal;
-    voxel.roughness = prev_voxel.roughness;
-
     // brush_grass_ball(voxel);
     // brush_flowers(voxel);
 

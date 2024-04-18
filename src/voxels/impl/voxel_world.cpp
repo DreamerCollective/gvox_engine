@@ -1,4 +1,5 @@
 #include "voxel_world.inl"
+#include "utilities/debug.hpp"
 #include <chrono>
 #include <fmt/format.h>
 
@@ -74,7 +75,7 @@ PackedVoxel sample_voxel_chunk(CpuVoxelChunk const &voxel_chunk, glm::uvec3 inch
 }
 
 float msign(float x) {
-    return x >= 0.0 ? 1.0 : -1.0;
+    return x >= 0.0f ? 1.0f : -1.0f;
 }
 uint32_t octahedral_8(daxa_f32vec3 nor) {
     auto temp_nor = nor;
@@ -97,11 +98,11 @@ uint32_t octahedral_8(daxa_f32vec3 nor) {
 //     return normalize(nor);
 // }
 uint32_t pack_unit(float x, uint32_t bit_n) {
-    float scl = float(1u << bit_n) - 1.0;
+    float scl = float(1u << bit_n) - 1.0f;
     return uint32_t(round(x * scl));
 }
 float unpack_unit(uint32_t x, uint32_t bit_n) {
-    float scl = float(1u << bit_n) - 1.0;
+    float scl = float(1u << bit_n) - 1.0f;
     return float(x) / scl;
 }
 uint32_t pack_rgb(daxa_f32vec3 f) {
@@ -297,7 +298,6 @@ void VoxelWorld::record_startup(GpuContext &gpu_context) {
     if (!rt_initialized) {
         rt_initialized = true;
 
-        auto acceleration_structure_scratch_offset_alignment = gpu_context.device.properties().acceleration_structure_properties.value().min_acceleration_structure_scratch_offset_alignment;
         auto const MAX_BLAS_N = voxel_chunks.size() + 1;
 
         buffers.blas_geom_pointers = gpu_context.find_or_add_temporal_buffer({
@@ -474,6 +474,9 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
         auto material_type = (packed_voxel_data >> 0) & 3;
         return material_type == 0;
     };
+    auto voxel_is_null = [](uint32_t packed_voxel_data) {
+        return (packed_voxel_data & PACKED_NULL_VOXEL_MASK) == PACKED_NULL_VOXEL;
+    };
     dirty_chunks.clear();
 
     for (auto const &chunk_update : chunk_updates) {
@@ -496,9 +499,7 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
             auto &palette_chunk = voxel_chunk.palette_chunks[palette_region_i];
             auto palette_size = palette_header.variant_n;
             auto compressed_size = 0u;
-            if (palette_chunk.variant_n > 1) {
-                delete[] palette_chunk.blob_ptr;
-            }
+            auto prev_palette_chunk = palette_chunk;
             palette_chunk.variant_n = palette_size;
             auto bits_per_variant = ceil_log2(palette_size);
             if (palette_size > PALETTE_MAX_COMPRESSED_VARIANT_N) {
@@ -511,19 +512,46 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
             }
             auto prev_has_air = palette_chunk.has_air;
             palette_chunk.has_air = false;
+            bool has_null = false;
             if (compressed_size != 0) {
                 palette_chunk.blob_ptr = new uint32_t[compressed_size];
                 memcpy(palette_chunk.blob_ptr, output_heap + palette_header.blob_ptr, compressed_size * sizeof(uint32_t));
                 copied_bytes += compressed_size * sizeof(uint32_t);
                 for (uint32_t i = 0; i < palette_size; ++i) {
-                    if (voxel_is_air(palette_chunk.blob_ptr[i])) {
+                    if (voxel_is_null(palette_chunk.blob_ptr[i])) {
+                        has_null = true;
+                    } else if (voxel_is_air(palette_chunk.blob_ptr[i])) {
                         palette_chunk.has_air = true;
+                    }
+                    if (has_null && palette_chunk.has_air) {
                         break;
                     }
                 }
             } else {
                 palette_chunk.blob_ptr = std::bit_cast<uint32_t *>(size_t(palette_header.blob_ptr));
-                if (voxel_is_air(palette_header.blob_ptr)) {
+                if (voxel_is_null(palette_header.blob_ptr)) {
+                    has_null = true;
+                } else if (voxel_is_air(palette_header.blob_ptr)) {
+                    palette_chunk.has_air = true;
+                }
+            }
+
+            if (has_null) {
+                // Merge palette chunk with previous palette chunk, as there are some null voxels.
+                // In some cases this may mean no update is necessary at all.
+                if (compressed_size == 0) {
+                    // Whole palette chunk is null voxels, just re-use old palette chunk.
+                    if (prev_palette_chunk.blob_ptr == nullptr) {
+                        prev_palette_chunk.has_air = true;
+                        prev_palette_chunk.variant_n = 1;
+                    }
+                    palette_chunk = prev_palette_chunk;
+                } else {
+                    // For now, just delete the old palette chunk
+                    // TODO: implement palette merging
+                    if (prev_palette_chunk.variant_n > 1) {
+                        delete[] prev_palette_chunk.blob_ptr;
+                    }
                     palette_chunk.has_air = true;
                 }
             }

@@ -36,6 +36,9 @@
 
 #define MAX_CHUNK_UPDATES_PER_FRAME 128
 
+#define PACKED_NULL_VOXEL 0xFFFF00FC
+#define PACKED_NULL_VOXEL_MASK 0xFFFF00FF
+
 // 1364 daxa_u32's
 // 10.65625 bytes per 8x8x8
 struct TempVoxelChunkUniformity {
