@@ -497,9 +497,9 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
         for (uint32_t palette_region_i = 0; palette_region_i < PALETTES_PER_CHUNK; ++palette_region_i) {
             auto const &palette_header = chunk_update.palette_headers[palette_region_i];
             auto &palette_chunk = voxel_chunk.palette_chunks[palette_region_i];
+            auto prev_palette_chunk = palette_chunk;
             auto palette_size = palette_header.variant_n;
             auto compressed_size = 0u;
-            auto prev_palette_chunk = palette_chunk;
             palette_chunk.variant_n = palette_size;
             auto bits_per_variant = ceil_log2(palette_size);
             if (palette_size > PALETTE_MAX_COMPRESSED_VARIANT_N) {
@@ -510,7 +510,6 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
             } else {
                 // no blob
             }
-            auto prev_has_air = palette_chunk.has_air;
             palette_chunk.has_air = false;
             bool has_null = false;
             if (compressed_size != 0) {
@@ -556,23 +555,78 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
                 }
             }
 
-            if (palette_chunk.has_air != prev_has_air) {
+            if (palette_chunk.has_air) {
+                // figure out which faces have air, for finer grained surface culling
+                for (uint32_t xi = 0; xi < 2; ++xi) {
+                    bool has_air = false;
+                    for (uint32_t zi = 0; zi < PALETTE_REGION_SIZE; ++zi) {
+                        for (uint32_t yi = 0; yi < PALETTE_REGION_SIZE; ++yi) {
+                            if (voxel_is_air(sample_palette(palette_chunk, xi * (PALETTE_REGION_SIZE - 1) + yi * PALETTE_REGION_SIZE + zi * PALETTE_REGION_SIZE * PALETTE_REGION_SIZE).data)) {
+                                has_air = true;
+                                goto loop_exit_x;
+                            }
+                        }
+                    }
+                loop_exit_x:
+                    if (xi == 0) {
+                        palette_chunk.has_air_nx = has_air;
+                    } else {
+                        palette_chunk.has_air_px = has_air;
+                    }
+                }
+                for (uint32_t yi = 0; yi < 2; ++yi) {
+                    bool has_air = false;
+                    for (uint32_t zi = 0; zi < PALETTE_REGION_SIZE; ++zi) {
+                        for (uint32_t xi = 0; xi < PALETTE_REGION_SIZE; ++xi) {
+                            if (voxel_is_air(sample_palette(palette_chunk, xi + yi * (PALETTE_REGION_SIZE - 1) * PALETTE_REGION_SIZE + zi * PALETTE_REGION_SIZE * PALETTE_REGION_SIZE).data)) {
+                                has_air = true;
+                                goto loop_exit_y;
+                            }
+                        }
+                    }
+                loop_exit_y:
+                    if (yi == 0) {
+                        palette_chunk.has_air_ny = has_air;
+                    } else {
+                        palette_chunk.has_air_py = has_air;
+                    }
+                }
+                for (uint32_t zi = 0; zi < 2; ++zi) {
+                    bool has_air = false;
+                    for (uint32_t yi = 0; yi < PALETTE_REGION_SIZE; ++yi) {
+                        for (uint32_t xi = 0; xi < PALETTE_REGION_SIZE; ++xi) {
+                            if (voxel_is_air(sample_palette(palette_chunk, xi + yi * PALETTE_REGION_SIZE + zi * (PALETTE_REGION_SIZE - 1) * PALETTE_REGION_SIZE * PALETTE_REGION_SIZE).data)) {
+                                has_air = true;
+                                goto loop_exit_z;
+                            }
+                        }
+                    }
+                loop_exit_z:
+                    if (zi == 0) {
+                        palette_chunk.has_air_nz = has_air;
+                    } else {
+                        palette_chunk.has_air_pz = has_air;
+                    }
+                }
+            }
+
+            {
                 // updated palette chunk
                 auto palette_region_xi = (palette_region_i / 1) % PALETTES_PER_CHUNK_AXIS;
                 auto palette_region_yi = (palette_region_i / PALETTES_PER_CHUNK_AXIS) % PALETTES_PER_CHUNK_AXIS;
                 auto palette_region_zi = (palette_region_i / PALETTES_PER_CHUNK_AXIS / PALETTES_PER_CHUNK_AXIS);
 
-                if (palette_region_xi == 0)
+                if (palette_chunk.has_air_nx != prev_palette_chunk.has_air_nx && palette_region_xi == 0)
                     nx_face_updated = true;
-                if (palette_region_yi == 0)
+                if (palette_chunk.has_air_ny != prev_palette_chunk.has_air_ny && palette_region_yi == 0)
                     ny_face_updated = true;
-                if (palette_region_zi == 0)
+                if (palette_chunk.has_air_nz != prev_palette_chunk.has_air_nz && palette_region_zi == 0)
                     nz_face_updated = true;
-                if (palette_region_xi == PALETTES_PER_CHUNK_AXIS - 1)
+                if (palette_chunk.has_air_px != prev_palette_chunk.has_air_px && palette_region_xi == PALETTES_PER_CHUNK_AXIS - 1)
                     px_face_updated = true;
-                if (palette_region_yi == PALETTES_PER_CHUNK_AXIS - 1)
+                if (palette_chunk.has_air_py != prev_palette_chunk.has_air_py && palette_region_yi == PALETTES_PER_CHUNK_AXIS - 1)
                     py_face_updated = true;
-                if (palette_region_zi == PALETTES_PER_CHUNK_AXIS - 1)
+                if (palette_chunk.has_air_pz != prev_palette_chunk.has_air_pz && palette_region_zi == PALETTES_PER_CHUNK_AXIS - 1)
                     pz_face_updated = true;
             }
         }
@@ -636,7 +690,7 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
     auto chunks_moved = gpu_input.player.player_unit_offset.x != gpu_input.player.prev_unit_offset.x ||
                         gpu_input.player.player_unit_offset.y != gpu_input.player.prev_unit_offset.y ||
                         gpu_input.player.player_unit_offset.z != gpu_input.player.prev_unit_offset.z ||
-                        gpu_input.frame_index <= 10;
+                        gpu_input.frame_index <= 2;
 
     if (chunks_moved) {
         for (uint64_t chunk_i = 0; chunk_i < voxel_chunks.size(); ++chunk_i) {
@@ -702,7 +756,9 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
                             } else {
                                 temp_palette_chunk = &voxel_chunk.palette_chunks[palette_region_i + nxi + nyi * PALETTES_PER_CHUNK_AXIS + nzi * PALETTES_PER_CHUNK_AXIS * PALETTES_PER_CHUNK_AXIS];
                             }
-                            if (temp_palette_chunk->has_air) {
+                            if ((temp_palette_chunk->has_air_nx && nxi == 1) || (temp_palette_chunk->has_air_px && nxi == -1) ||
+                                (temp_palette_chunk->has_air_ny && nyi == 1) || (temp_palette_chunk->has_air_py && nyi == -1) ||
+                                (temp_palette_chunk->has_air_nz && nzi == 1) || (temp_palette_chunk->has_air_pz && nzi == -1)) {
                                 neighbors_air = true;
                             }
                         }
@@ -771,9 +827,9 @@ void VoxelWorld::update_chunks(daxa::Device &device, GpuInput const &gpu_input) 
                     auto &blas_attr = blas_chunk.attrib_bricks.back();
 
                     blas_geom.aabb.minimum = {
-                        (-0.5f + axi) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
-                        (-0.5f + ayi) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
-                        (-0.5f + azi) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
+                        (-0.5f + float(axi)) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
+                        (-0.5f + float(ayi)) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
+                        (-0.5f + float(azi)) * float(VOXEL_SIZE) * BLAS_BRICK_SIZE,
                     };
                     blas_geom.aabb.maximum = blas_geom.aabb.minimum;
                     blas_geom.aabb.maximum.x += float(VOXEL_SIZE) * BLAS_BRICK_SIZE;

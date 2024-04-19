@@ -468,18 +468,23 @@ void VoxelApp::calc_vram_usage() {
     auto total_attr_size = size_t{};
     auto total_geom_size = size_t{};
     auto total_non_empty_blas_count = size_t{};
+    auto total_geom_count = size_t{};
     for (auto const &blas_chunk : voxel_world.blas_chunks) {
         total_blas_size += buffer_size(blas_chunk.blas_buffer, false);
         total_attr_size += buffer_size(blas_chunk.attr_buffer, false);
         total_geom_size += buffer_size(blas_chunk.geom_buffer, false);
         if (!blas_chunk.blas_geoms.empty()) {
             ++total_non_empty_blas_count;
+            total_geom_count += blas_chunk.blas_geoms.size();
         }
     }
-    debug_utils::DebugDisplay::set_debug_string("total_tlas_size", fmt::format("{} MB", static_cast<float>(total_tlas_size) / 1000000));
+    debug_utils::DebugDisplay::set_debug_string("total_tlas_size", fmt::format("{:.3f} MB", static_cast<float>(total_tlas_size) / 1000000));
     debug_utils::DebugDisplay::set_debug_string("total_blas_size", fmt::format("{:.3f} MB ({:.3f} KB/blas)", static_cast<float>(total_blas_size) / 1000000, static_cast<float>(total_blas_size) / total_non_empty_blas_count / 1000));
     debug_utils::DebugDisplay::set_debug_string("total_attr_size", fmt::format("{:.3f} MB ({:.3f} KB/blas)", static_cast<float>(total_attr_size) / 1000000, static_cast<float>(total_attr_size) / total_non_empty_blas_count / 1000));
     debug_utils::DebugDisplay::set_debug_string("total_geom_size", fmt::format("{:.3f} MB ({:.3f} KB/blas)", static_cast<float>(total_geom_size) / 1000000, static_cast<float>(total_geom_size) / total_non_empty_blas_count / 1000));
+    debug_utils::DebugDisplay::set_debug_string("total_geom_count", fmt::format("{}", total_geom_count));
+    debug_utils::DebugDisplay::set_debug_string("total_blas_count", fmt::format("{}", total_non_empty_blas_count));
+    debug_utils::DebugDisplay::set_debug_string("avg #geom per blas", fmt::format("{:.3f}", float(total_geom_count) / float(total_non_empty_blas_count)));
 
 #endif
 

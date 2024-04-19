@@ -39,16 +39,6 @@
 #define PACKED_NULL_VOXEL 0xFFFF00FC
 #define PACKED_NULL_VOXEL_MASK 0xFFFF00FF
 
-// 1364 daxa_u32's
-// 10.65625 bytes per 8x8x8
-struct TempVoxelChunkUniformity {
-    daxa_u32 lod_x2[1024];
-    daxa_u32 lod_x4[256];
-    daxa_u32 lod_x8[64];
-    daxa_u32 lod_x16[16];
-    daxa_u32 lod_x32[4];
-};
-
 // 8 bytes per 8x8x8
 struct PaletteHeader {
     daxa_u32 variant_n;
@@ -89,7 +79,6 @@ DAXA_DECL_BUFFER_PTR(VoxelLeafChunk)
 
 struct TempVoxelChunk {
     PackedVoxel voxels[CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    TempVoxelChunkUniformity uniformity;
 };
 DAXA_DECL_BUFFER_PTR(TempVoxelChunk)
 

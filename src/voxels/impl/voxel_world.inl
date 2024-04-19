@@ -94,6 +94,12 @@ struct ChunkAllocComputePush {
 
 struct CpuPaletteChunk {
     uint32_t has_air : 1 {};
+    uint32_t has_air_nx : 1 {};
+    uint32_t has_air_ny : 1 {};
+    uint32_t has_air_nz : 1 {};
+    uint32_t has_air_px : 1 {};
+    uint32_t has_air_py : 1 {};
+    uint32_t has_air_pz : 1 {};
     uint32_t variant_n{};
     uint32_t *blob_ptr{};
 };
