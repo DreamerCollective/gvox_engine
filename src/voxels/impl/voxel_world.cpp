@@ -105,14 +105,14 @@ float unpack_unit(uint32_t x, uint32_t bit_n) {
     float scl = float(1u << bit_n) - 1.0f;
     return float(x) / scl;
 }
-uint32_t pack_rgb(daxa_f32vec3 f) {
+uint32_t pack_rgb565(daxa_f32vec3 f) {
     f.x = powf(f.x, 1.0f / 2.2f);
     f.y = powf(f.y, 1.0f / 2.2f);
     f.z = powf(f.z, 1.0f / 2.2f);
     uint32_t result = 0;
-    result |= uint32_t(std::clamp(f.x * 63.0f, 0.0f, 63.0f)) << 0;
-    result |= uint32_t(std::clamp(f.y * 63.0f, 0.0f, 63.0f)) << 6;
-    result |= uint32_t(std::clamp(f.z * 63.0f, 0.0f, 63.0f)) << 12;
+    result |= uint32_t(std::clamp(f.x * 31.0f, 0.0f, 31.0f)) << 0;
+    result |= uint32_t(std::clamp(f.y * 63.0f, 0.0f, 63.0f)) << 5;
+    result |= uint32_t(std::clamp(f.z * 31.0f, 0.0f, 31.0f)) << 11;
     return result;
 }
 PackedVoxel pack_voxel(Voxel v) {
@@ -124,11 +124,11 @@ PackedVoxel pack_voxel(Voxel v) {
     v.normal = basis * uniform_sample_cone(vec2(rand(), rand()), cos(0.19 * 0.5));
 #endif
 
-    uint32_t packed_roughness = pack_unit(sqrt(v.roughness), 4);
+    uint32_t packed_roughness = pack_unit(sqrt(v.roughness), 6);
     uint32_t packed_normal = octahedral_8(normalize(v.normal));
-    uint32_t packed_color = pack_rgb(v.color);
+    uint32_t packed_color = pack_rgb565(v.color);
 
-    result.data = (v.material_type) | (packed_roughness << 2) | (packed_normal << 6) | (packed_color << 14);
+    result.data = (v.material_type) | (packed_roughness << 2) | (packed_normal << 8) | (packed_color << 16);
 
     return result;
 }
@@ -197,7 +197,7 @@ auto test_entity_voxel(daxa_f32vec3 p, GpuInput const &gpu_input) -> Voxel {
         voxel.roughness = 0.9f;
     }
     return voxel;
-};
+}
 
 // PackedVoxel sample_voxel_chunk(VoxelBufferPtrs ptrs, glm::uvec3 chunk_n, glm::vec3 voxel_p, glm::vec3 bias) {
 //     vec3 offset = glm::vec3((deref(ptrs.globals).offset) & ((1 << (6 + LOG2_VOXEL_SIZE)) - 1)) + glm::vec3(chunk_n) * CHUNK_WORLDSPACE_SIZE * 0.5;
